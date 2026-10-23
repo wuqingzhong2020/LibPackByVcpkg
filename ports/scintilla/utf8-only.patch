@@ -1,0 +1,452 @@
+--- a/qt/ScintillaEditBase/PlatQt.h
++++ b/qt/ScintillaEditBase/PlatQt.h
+@@ -33,11 +33,8 @@
+ #include <QPaintDevice>
+ #include <QPainter>
+ #include <QHash>
+-#include <QTextCodec>
+ 
+ namespace Scintilla::Internal {
+-
+-const char *CharacterSetID(Scintilla::CharacterSet characterSet);
+ 
+ inline QColor QColorFromColourRGBA(ColourRGBA ca)
+ {
+@@ -89,8 +86,6 @@
+ 	bool painterOwned = false;
+ 	SurfaceMode mode;
+ 	qreal scale = 0.0;
+-	const char *codecName = nullptr;
+-	QTextCodec *codec = nullptr;
+ 
+ 	void Clear();
+ 
+@@ -164,7 +159,6 @@
+ 	void FlushDrawing() override;
+ 
+ 	void BrushColour(ColourRGBA back);
+-	void SetCodec(const Font *font);
+ 	void SetFont(const Font *font);
+ 
+ 	QPaintDevice *GetPaintDevice();
+--- a/qt/ScintillaEditBase/PlatQt.cpp
++++ b/qt/ScintillaEditBase/PlatQt.cpp
+@@ -34,7 +34,6 @@
+ #include <QAction>
+ #include <QTime>
+ #include <QMessageBox>
+-#include <QTextCodec>
+ #include <QListWidget>
+ #include <QVarLengthArray>
+ #include <QScrollBar>
+@@ -48,61 +47,6 @@
+ namespace Scintilla::Internal {
+ 
+ //----------------------------------------------------------------------
+-
+-// Convert from a Scintilla characterSet value to a Qt codec name.
+-const char *CharacterSetID(CharacterSet characterSet)
+-{
+-	switch (characterSet) {
+-		//case CharacterSet::Ansi:
+-		//	return "";
+-	case CharacterSet::Default:
+-		return "ISO 8859-1";
+-	case CharacterSet::Baltic:
+-		return "ISO 8859-13";
+-	case CharacterSet::ChineseBig5:
+-		return "Big5";
+-	case CharacterSet::EastEurope:
+-		return "ISO 8859-2";
+-	case CharacterSet::GB2312:
+-		return "GB18030-0";
+-	case CharacterSet::Greek:
+-		return "ISO 8859-7";
+-	case CharacterSet::Hangul:
+-		return "CP949";
+-	case CharacterSet::Mac:
+-		return "Apple Roman";
+-		//case SC_CHARSET_OEM:
+-		//	return "ASCII";
+-	case CharacterSet::Russian:
+-		return "KOI8-R";
+-	case CharacterSet::Cyrillic:
+-		return "Windows-1251";
+-	case CharacterSet::ShiftJis:
+-		return "Shift-JIS";
+-		//case SC_CHARSET_SYMBOL:
+-		//        return "";
+-	case CharacterSet::Turkish:
+-		return "ISO 8859-9";
+-		//case SC_CHARSET_JOHAB:
+-		//        return "CP1361";
+-	case CharacterSet::Hebrew:
+-		return "ISO 8859-8";
+-	case CharacterSet::Arabic:
+-		return "ISO 8859-6";
+-	case CharacterSet::Vietnamese:
+-		return "Windows-1258";
+-	case CharacterSet::Thai:
+-		return "TIS-620";
+-	case CharacterSet::Iso8859_15:
+-		return "ISO 8859-15";
+-	default:
+-		return "ISO 8859-1";
+-	}
+-}
+-
+-QString UnicodeFromText(QTextCodec *codec, std::string_view text) {
+-	return codec->toUnicode(text.data(), static_cast<int>(text.length()));
+-}
+ 
+ static QFont::StyleStrategy ChooseStrategy(FontQuality eff)
+ {
+@@ -341,26 +285,11 @@
+ 	GetPainter()->setBrush(QBrush(QColorFromColourRGBA(back)));
+ }
+ 
+-void SurfaceImpl::SetCodec(const Font *font)
+-{
+-	const FontAndCharacterSet *pfacs = AsFontAndCharacterSet(font);
+-	if (pfacs && pfacs->pfont) {
+-		const char *csid = "UTF-8";
+-		if (!(mode.codePage == SC_CP_UTF8))
+-			csid = CharacterSetID(pfacs->characterSet);
+-		if (csid != codecName) {
+-			codecName = csid;
+-			codec = QTextCodec::codecForName(csid);
+-		}
+-	}
+-}
+-
+ void SurfaceImpl::SetFont(const Font *font)
+ {
+ 	const FontAndCharacterSet *pfacs = AsFontAndCharacterSet(font);
+ 	if (pfacs && pfacs->pfont) {
+ 		GetPainter()->setFont(*(pfacs->pfont));
+-		SetCodec(font);
+ 	}
+ }
+ 
+@@ -601,20 +530,10 @@
+ 	return {};
+ }
+ 
+-void SurfaceImpl::DrawTextNoClip(PRectangle rc,
+-				 const Font *font,
+-                                 XYPOSITION ybase,
+-				 std::string_view text,
+-				 ColourRGBA fore,
+-				 ColourRGBA back)
+-{
+-	SetFont(font);
+-	PenColour(fore);
+-
+-	GetPainter()->setBackground(QColorFromColourRGBA(back));
+-	GetPainter()->setBackgroundMode(Qt::OpaqueMode);
+-	QString su = UnicodeFromText(codec, text);
+-	GetPainter()->drawText(QPointF(rc.left, ybase), su);
++void SurfaceImpl::DrawTextNoClip(PRectangle rc, const Font *font,
++        XYPOSITION ybase, std::string_view text, ColourRGBA fore, ColourRGBA back)
++{
++	DrawTextNoClipUTF8(rc, font, ybase, text, fore, back);
+ }
+ 
+ void SurfaceImpl::DrawTextClipped(PRectangle rc,
+@@ -629,18 +548,10 @@
+ 	PopClip();
+ }
+ 
+-void SurfaceImpl::DrawTextTransparent(PRectangle rc,
+-				      const Font *font,
+-                                      XYPOSITION ybase,
+-				      std::string_view text,
+-	ColourRGBA fore)
+-{
+-	SetFont(font);
+-	PenColour(fore);
+-
+-	GetPainter()->setBackgroundMode(Qt::TransparentMode);
+-	QString su = UnicodeFromText(codec, text);
+-	GetPainter()->drawText(QPointF(rc.left, ybase), su);
++void SurfaceImpl::DrawTextTransparent(PRectangle rc, const Font *font,
++        XYPOSITION ybase, std::string_view text, ColourRGBA fore)
++{
++	DrawTextTransparentUTF8(rc, font, ybase, text, fore);
+ }
+ 
+ void SurfaceImpl::SetClip(PRectangle rc)
+@@ -655,66 +566,14 @@
+ }
+ 
+ void SurfaceImpl::MeasureWidths(const Font *font,
+-				std::string_view text,
+-                                XYPOSITION *positions)
+-{
+-	if (!font)
+-		return;
+-	SetCodec(font);
+-	QString su = UnicodeFromText(codec, text);
+-	QTextLayout tlay(su, *FontPointer(font), GetPaintDevice());
+-	tlay.beginLayout();
+-	QTextLine tl = tlay.createLine();
+-	tlay.endLayout();
+-	if (mode.codePage == SC_CP_UTF8) {
+-		int fit = su.size();
+-		int ui=0;
+-		size_t i=0;
+-		while (ui<fit) {
+-			const unsigned char uch = text[i];
+-			const unsigned int byteCount = UTF8BytesOfLead[uch];
+-			const int codeUnits = UTF16LengthFromUTF8ByteCount(byteCount);
+-			qreal xPosition = tl.cursorToX(ui+codeUnits);
+-			for (size_t bytePos=0; (bytePos<byteCount) && (i<text.length()); bytePos++) {
+-				positions[i++] = xPosition;
+-			}
+-			ui += codeUnits;
+-		}
+-		XYPOSITION lastPos = 0;
+-		if (i > 0)
+-			lastPos = positions[i-1];
+-		while (i<text.length()) {
+-			positions[i++] = lastPos;
+-		}
+-	} else if (mode.codePage) {
+-		// DBCS
+-		int ui = 0;
+-		for (size_t i=0; i<text.length();) {
+-			size_t lenChar = DBCSIsLeadByte(mode.codePage, text[i]) ? 2 : 1;
+-			qreal xPosition = tl.cursorToX(ui+1);
+-			for (unsigned int bytePos=0; (bytePos<lenChar) && (i<text.length()); bytePos++) {
+-				positions[i++] = xPosition;
+-			}
+-			ui++;
+-		}
+-	} else {
+-		// Single byte encoding
+-		for (int i=0; i<static_cast<int>(text.length()); i++) {
+-			positions[i] = tl.cursorToX(i+1);
+-		}
+-	}
++        std::string_view text, XYPOSITION *positions)
++{
++	MeasureWidthsUTF8(font, text, positions);
+ }
+ 
+ XYPOSITION SurfaceImpl::WidthText(const Font *font, std::string_view text)
+ {
+-	QFontMetricsF metrics(*FontPointer(font), device);
+-	SetCodec(font);
+-	QString su = UnicodeFromText(codec, text);
+-#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+-	return metrics.horizontalAdvance(su);
+-#else
+-	return metrics.width(su);
+-#endif
++	return WidthTextUTF8(font, text);
+ }
+ 
+ void SurfaceImpl::DrawTextNoClipUTF8(PRectangle rc,
+--- a/qt/ScintillaEditBase/ScintillaQt.cpp
++++ b/qt/ScintillaEditBase/ScintillaQt.cpp
+@@ -19,7 +19,6 @@
+ #include <QMimeData>
+ #include <QWindow>
+ #include <QMenu>
+-#include <QTextCodec>
+ #include <QScrollBar>
+ #include <QTimer>
+ 
+@@ -165,13 +164,7 @@
+ 
+ static QString StringFromSelectedText(const SelectionText &selectedText)
+ {
+-	if (selectedText.codePage == SC_CP_UTF8) {
+-		return QString::fromUtf8(selectedText.Data(), static_cast<int>(selectedText.Length()));
+-	} else {
+-		QTextCodec *codec = QTextCodec::codecForName(
+-				CharacterSetID(selectedText.characterSet));
+-		return codec->toUnicode(selectedText.Data(), static_cast<int>(selectedText.Length()));
+-	}
++	return QString::fromUtf8(selectedText.Data(), static_cast<qsizetype>(selectedText.Length()));
+ }
+ 
+ static void AddRectangularToMime(QMimeData *mimeData, [[maybe_unused]] const QString &su)
+@@ -242,36 +235,16 @@
+ 
+ bool ScintillaQt::ValidCodePage(int codePage) const
+ {
+-	return codePage == 0
+-	|| codePage == SC_CP_UTF8
+-	|| codePage == 932
+-	|| codePage == 936
+-	|| codePage == 949
+-	|| codePage == 950
+-	|| codePage == 1361;
++	// Document already defaults to UTF-8. Reject legacy code page requests.
++	return codePage == SC_CP_UTF8;
+ }
+ 
+ std::string ScintillaQt::UTF8FromEncoded(std::string_view encoded) const {
+-	if (IsUnicodeMode()) {
+-		return std::string(encoded);
+-	} else {
+-		QTextCodec *codec = QTextCodec::codecForName(
+-				CharacterSetID(CharacterSetOfDocument()));
+-		QString text = codec->toUnicode(encoded.data(), static_cast<int>(encoded.length()));
+-		return text.toStdString();
+-	}
++	return std::string(encoded);
+ }
+ 
+ std::string ScintillaQt::EncodedFromUTF8(std::string_view utf8) const {
+-	if (IsUnicodeMode()) {
+-		return std::string(utf8);
+-	} else {
+-		QString text = QString::fromUtf8(utf8.data(), static_cast<int>(utf8.length()));
+-		QTextCodec *codec = QTextCodec::codecForName(
+-				CharacterSetID(CharacterSetOfDocument()));
+-		QByteArray ba = codec->fromUnicode(text);
+-		return std::string(ba.data(), ba.length());
+-	}
++	return std::string(utf8);
+ }
+ 
+ void ScintillaQt::ScrollText(Sci::Line linesToMove)
+@@ -550,92 +523,19 @@
+ 	return vs.styles[STYLE_DEFAULT].characterSet;
+ }
+ 
+-const char *ScintillaQt::CharacterSetIDOfDocument() const
+-{
+-	return CharacterSetID(CharacterSetOfDocument());
+-}
+-
+ QString ScintillaQt::StringFromDocument(const char *s) const
+ {
+-	if (IsUnicodeMode()) {
+-		return QString::fromUtf8(s);
+-	} else {
+-		QTextCodec *codec = QTextCodec::codecForName(
+-				CharacterSetID(CharacterSetOfDocument()));
+-		return codec->toUnicode(s);
+-	}
++	return QString::fromUtf8(s);
+ }
+ 
+ QByteArray ScintillaQt::BytesForDocument(const QString &text) const
+ {
+-	if (IsUnicodeMode()) {
+-		return text.toUtf8();
+-	} else {
+-		QTextCodec *codec = QTextCodec::codecForName(
+-				CharacterSetID(CharacterSetOfDocument()));
+-		return codec->fromUnicode(text);
+-	}
+-}
+-
+-namespace {
+-
+-class CaseFolderDBCS : public CaseFolderTable {
+-	QTextCodec *codec;
+-public:
+-	explicit CaseFolderDBCS(QTextCodec *codec_) : codec(codec_) {
+-	}
+-	size_t Fold(char *folded, size_t sizeFolded, const char *mixed, size_t lenMixed) override {
+-		if ((lenMixed == 1) && (sizeFolded > 0)) {
+-			folded[0] = mapping[static_cast<unsigned char>(mixed[0])];
+-			return 1;
+-		} else if (codec) {
+-			QString su = codec->toUnicode(mixed, static_cast<int>(lenMixed));
+-			QString suFolded = su.toCaseFolded();
+-			QByteArray bytesFolded = codec->fromUnicode(suFolded);
+-
+-			if (bytesFolded.length() < static_cast<int>(sizeFolded)) {
+-				memcpy(folded, bytesFolded,  bytesFolded.length());
+-				return bytesFolded.length();
+-			}
+-		}
+-		// Something failed so return a single NUL byte
+-		folded[0] = '\0';
+-		return 1;
+-	}
+-};
+-
++	return text.toUtf8();
+ }
+ 
+ std::unique_ptr<CaseFolder> ScintillaQt::CaseFolderForEncoding()
+ {
+-	if (pdoc->dbcsCodePage == SC_CP_UTF8) {
+-		return std::make_unique<CaseFolderUnicode>();
+-	} else {
+-		const char *charSetBuffer = CharacterSetIDOfDocument();
+-		if (charSetBuffer) {
+-			if (pdoc->dbcsCodePage == 0) {
+-				std::unique_ptr<CaseFolderTable> pcf = std::make_unique<CaseFolderTable>();
+-				QTextCodec *codec = QTextCodec::codecForName(charSetBuffer);
+-				// Only for single byte encodings
+-				for (int i=0x80; i<0x100; i++) {
+-					char sCharacter[2] = "A";
+-					sCharacter[0] = static_cast<char>(i);
+-					QString su = codec->toUnicode(sCharacter, 1);
+-					QString suFolded = su.toCaseFolded();
+-					if (codec->canEncode(suFolded)) {
+-						QByteArray bytesFolded = codec->fromUnicode(suFolded);
+-						if (bytesFolded.length() == 1) {
+-							pcf->SetTranslation(sCharacter[0], bytesFolded[0]);
+-						}
+-					}
+-				}
+-				return pcf;
+-			} else {
+-				return std::make_unique<CaseFolderDBCS>(QTextCodec::codecForName(charSetBuffer));
+-			}
+-		}
+-		return nullptr;
+-	}
++	return std::make_unique<CaseFolderUnicode>();
+ }
+ 
+ std::string ScintillaQt::CaseMapString(const std::string &s, CaseMapping caseMapping)
+@@ -643,25 +543,11 @@
+ 	if (s.empty() || (caseMapping == CaseMapping::same))
+ 		return s;
+ 
+-	if (IsUnicodeMode()) {
+-		std::string retMapped(s.length() * maxExpansionCaseConversion, 0);
+-		size_t lenMapped = CaseConvertString(&retMapped[0], retMapped.length(), s.c_str(), s.length(),
+-			(caseMapping == CaseMapping::upper) ? CaseConversion::upper : CaseConversion::lower);
+-		retMapped.resize(lenMapped);
+-		return retMapped;
+-	}
+-
+-	QTextCodec *codec = QTextCodec::codecForName(CharacterSetIDOfDocument());
+-	QString text = codec->toUnicode(s.c_str(), static_cast<int>(s.length()));
+-
+-	if (caseMapping == CaseMapping::upper) {
+-		text = text.toUpper();
+-	} else {
+-		text = text.toLower();
+-	}
+-
+-	QByteArray bytes = BytesForDocument(text);
+-	return std::string(bytes.data(), bytes.length());
++	std::string retMapped(s.length() * maxExpansionCaseConversion, 0);
++	size_t lenMapped = CaseConvertString(&retMapped[0], retMapped.length(), s.c_str(), s.length(),
++		(caseMapping == CaseMapping::upper) ? CaseConversion::upper : CaseConversion::lower);
++	retMapped.resize(lenMapped);
++	return retMapped;
+ }
+ 
+ void ScintillaQt::SetMouseCapture(bool on)
+--- a/qt/ScintillaEditBase/ScintillaQt.h
++++ b/qt/ScintillaEditBase/ScintillaQt.h
+@@ -144,7 +144,6 @@
+ 	bool HaveMouseCapture() override;
+ 	void StartDrag() override;
+ 	Scintilla::CharacterSet CharacterSetOfDocument() const;
+-	const char *CharacterSetIDOfDocument() const;
+ 	QString StringFromDocument(const char *s) const;
+ 	QByteArray BytesForDocument(const QString &text) const;
+ 	std::unique_ptr<CaseFolder> CaseFolderForEncoding() override;

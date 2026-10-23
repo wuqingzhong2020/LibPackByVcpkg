@@ -1,0 +1,19 @@
+{
+  "name": "cccorelib",
+  "version-string": "2024.04.10",
+  "description": "CCCoreLib SDK",
+  "homepage": "https://github.com/CloudCompare/CCCoreLib",
+  "license": "LGPL-2.0-or-later AND MIT AND BSD-2-Clause",
+  "supports": "(windows & !uwp & !mingw) | linux",
+  "dependencies": [
+    "tbb",
+    {
+      "name": "vcpkg-cmake",
+      "host": true
+    },
+    {
+      "name": "vcpkg-cmake-config",
+      "host": true
+    }
+  ]
+}

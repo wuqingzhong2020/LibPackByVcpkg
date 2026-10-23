@@ -1,0 +1,8 @@
+Qt qtimageformats 6.11.2 source attribution catalog
+Source: https://download.qt.io/archive/qt/6.11/6.11.2/submodules/qtimageformats-everywhere-src-6.11.2.tar.xz
+SHA512: 3d50005ccba1925c0fc3186ad41f45db540d9eab4040ca4c3f6b5e85e5f7be690aac29cb7662a795af5728942e4865f4cdc579ec8336feb296c41ea13f75f3bd
+
+Original src/**/qt_attribution.json files, their referenced LicenseFile texts, and root LICENSES files are preserved.
+This is a source notice superset, not a claim that every listed component was compiled or linked.
+Actual vcpkg features and external system libraries determine the application runtime closure.
+Development-tool licenses remain separate from runtime license selection.

@@ -1,0 +1,760 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -4,7 +4,23 @@
+ cmake_minimum_required(VERSION 3.15...3.31) # CMake>=3.15 for message(VERBOSE...)
+ 
+ project(CGAL CXX C)
+-export(PACKAGE CGAL)
++
++# Accept a relative SDK prefix in CMake GUI. Resolve it once in the top-level
++# scope so every install rule, generated config and uninstall script sees the
++# same absolute destination. Keep the user's cache entry unchanged.
++if("${CMAKE_INSTALL_PREFIX}" STREQUAL "")
++  message(FATAL_ERROR "CMAKE_INSTALL_PREFIX must be a non-empty relative or absolute path.")
++endif()
++if(NOT IS_ABSOLUTE "${CMAKE_INSTALL_PREFIX}")
++  get_filename_component(_cgal_resolved_install_prefix "${CMAKE_INSTALL_PREFIX}"
++    ABSOLUTE BASE_DIR "${CMAKE_BINARY_DIR}")
++  message(STATUS "CGAL install prefix: ${CMAKE_INSTALL_PREFIX} -> ${_cgal_resolved_install_prefix} (relative to build directory)")
++  set(CMAKE_INSTALL_PREFIX "${_cgal_resolved_install_prefix}")
++  unset(_cgal_resolved_install_prefix)
++endif()
++
++# Do not register the unrestricted source/build tree as an installed SDK.
++# Consumers of this local policy must use the installed CGAL_DIR explicitly.
+ 
+ set(CGAL_BRANCH_BUILD
+     ON
+diff --git a/Installation/CMakeLists.txt b/Installation/CMakeLists.txt
+--- a/Installation/CMakeLists.txt
++++ b/Installation/CMakeLists.txt
+@@ -646,11 +646,8 @@
+ cache_get(CGAL_3RD_PARTY_LIBRARIES     )
+ cache_get(CGAL_3RD_PARTY_LIBRARIES_DIRS)
+ 
+-install(DIRECTORY ${INCLUDE_CGAL_QT_DIRECTORIES} DESTINATION "${CGAL_INSTALL_INC_DIR}/CGAL/" COMPONENT CGAL_Qt6)
+-if(CGAL_BRANCH_BUILD)
+-  install(DIRECTORY "${CGAL_GRAPHICSVIEW_PACKAGE_DIR}/demo/resources/" DESTINATION "${CGAL_INSTALL_CMAKE_DIR}/demo/resources" COMPONENT CGAL_Qt6)
+-  install(DIRECTORY "${CGAL_GRAPHICSVIEW_PACKAGE_DIR}/demo/icons/" DESTINATION "${CGAL_INSTALL_CMAKE_DIR}/demo/icons" COMPONENT CGAL_Qt6)
+-endif()
++# All SDK headers go through the license whitelist below. Do not separately
++# install unreviewed GraphicsView headers/resources from GPL or mixed packages.
+ 
+ #
+ # Variables used when WITH_{demos|examples|tests} are TRUE
+@@ -718,29 +715,16 @@
+ 
+ # DESTINATION option is mandatory; skipping it breaks CPack!
+ 
++include("${CMAKE_CURRENT_LIST_DIR}/cmake/modules/CGAL_InstallWhitelist.cmake")
++cgal_install_whitelisted_headers()
++
+ if(CGAL_INSTALL_DOC_DIR)
+   install(FILES AUTHORS CHANGES.md LICENSE LICENSE.GPL
+-                LICENSE.LGPL DESTINATION ${CGAL_INSTALL_DOC_DIR})
+-endif()
+-
+-#install all includes collected in trunk et cetera
+-
+-foreach(dir ${CGAL_CONFIGURED_PACKAGES})
+-  if(EXISTS ${dir}/include/CGAL)
+-    install(
+-      DIRECTORY ${dir}/include/CGAL
+-      DESTINATION ${CGAL_INSTALL_INC_DIR}
+-      PATTERN ".svn" EXCLUDE
+-      PATTERN "Qt" EXCLUDE)
+-  endif()
+-endforeach()
+-if(EXISTS ${CGAL_BINARY_DIR}/include/CGAL)
+-  install(
+-    DIRECTORY ${CGAL_BINARY_DIR}/include/CGAL
+-    DESTINATION ${CGAL_INSTALL_INC_DIR}
+-    PATTERN ".svn" EXCLUDE
+-    PATTERN "Qt" EXCLUDE)
+-endif()
++                LICENSE.LGPL LICENSE.BSL LICENSE.CMAKE DESTINATION ${CGAL_INSTALL_DOC_DIR})
++endif()
++
++# Header installation is exclusively controlled by the whitelist above.
++# Do not copy arbitrary generated headers or bundled dependency binaries.
+ 
+ file(GLOB scripts "scripts/*")
+ list(SORT scripts)
+@@ -750,17 +734,14 @@
+ install(PROGRAMS ${scripts} DESTINATION ${CGAL_INSTALL_BIN_DIR})
+ 
+ install(DIRECTORY ${CGAL_MODULES_REL_DIR}/
+-        DESTINATION ${CGAL_INSTALL_CMAKE_DIR})
+-
+-if(IS_DIRECTORY auxiliary/gmp/include AND IS_DIRECTORY auxiliary/gmp/lib)
+-  install(DIRECTORY auxiliary/gmp/include/ DESTINATION ${CGAL_INSTALL_INC_DIR})
+-  install(DIRECTORY auxiliary/gmp/lib/ DESTINATION ${CGAL_INSTALL_LIB_DIR})
+-endif()
+-
+-if(ZLIB_IN_AUXILIARY)
+-  install(DIRECTORY auxiliary/zlib/include/ DESTINATION ${CGAL_INSTALL_INC_DIR})
+-  install(DIRECTORY auxiliary/zlib/lib/ DESTINATION ${CGAL_INSTALL_LIB_DIR})
+-endif()
++        DESTINATION ${CGAL_INSTALL_CMAKE_DIR}
++        ${CGAL_INSTALL_MODULE_EXCLUSIONS})
++
++# FindTBB/FindITT and the Sphinx helper refer to an accompanying Copyright.txt.
++install(FILES LICENSE.CMAKE DESTINATION ${CGAL_INSTALL_CMAKE_DIR}
++        RENAME Copyright.txt)
++install(FILES LICENSE.CMAKE DESTINATION ${CGAL_INSTALL_CMAKE_DIR}/Help
++        RENAME Copyright.txt)
+ 
+ install(FILES
+   ${CMAKE_CURRENT_LIST_DIR}/lib/cmake/CGAL/CGALConfig.cmake
+diff --git a/Installation/INSTALL_WHITELIST.md b/Installation/INSTALL_WHITELIST.md
+new file mode 100644
+--- /dev/null
++++ b/Installation/INSTALL_WHITELIST.md
+@@ -0,0 +1,166 @@
++# CGAL 6.2.1 安装许可白名单与可选依赖
++
++本地修改日期：2026-10-26。适用于这份 CGAL 6.2.1 Git 源码的 Windows/Linux 安装流程。
++
++本 SDK 按 **CGAL 代码本身的许可证**选择允许在履行许可义务后用于商用闭源项目的包和头文件，不假设购买 CGAL 商业许可证。LGPL 只是可接受的许可证之一；经审核的 MIT、BSD、Apache-2.0、BSL、Zlib、ISC、CC0、MPL-2.0 等也可纳入。明确排除 GPL 模块，以及直接或间接依赖这些模块的头文件；各文件按自身实际适用的许可履行义务。
++
++**不再根据第三方依赖名称裁剪接口。** Qt、OpenGL、GLU、Eigen、TBB、VTK、OpenMesh、LEDA 等第三方库不再设统一禁用规则。安装适配头文件不代表启用、下载、链接或分发对应第三方库。真正使用某个接口时，由使用方准备其依赖，并单独核对这些依赖的许可和分发条件。
++
++没有直接或间接使用某项功能，也没有通过宏、CMake 组件或目标启用它，就不必为它准备或分发对应第三方库。“不使用”是编译和链接层面的条件，不能仅指程序运行时没有走到某条分支。仅包含一个无条件引用外部库的适配头文件，就可能要求对应外部头文件存在。
++
++## CMake GUI 怎么填写
++
++| 选项 | 建议值 |
++| --- | --- |
++| 源码目录 | `<source>` |
++| 构建目录 | `<build>` |
++| `CMAKE_INSTALL_PREFIX` | 相对或绝对路径均可；相对路径以构建目录为基准 |
++| `CGAL_INSTALL_PACKAGE_WHITELIST` | 默认 46 个包，分号分隔；可以删除包，不能加入未审核包 |
++| `CGAL_INSTALL_INC_DIR` | `include` |
++| `CGAL_INSTALL_CMAKE_DIR` | 默认 `lib/cmake/CGAL` |
++| `CGAL_INSTALL_DOC_DIR` | 默认 `share/doc/CGAL`，不能清空 |
++| `CGAL_DO_NOT_USE_BOOST_MP` | `OFF`，保留 Boost.Multiprecision 与 Core 支持 |
++| `BUILD_DOC`、`CGAL_ENABLE_TESTING`、`CGAL_ENABLE_CHECK_HEADERS` | `OFF` |
++| `CGAL_WITH_examples`、`CGAL_WITH_demos`、`CGAL_WITH_tests`、`CGAL_WITH_benchmarks` | 全部 `OFF` |
++| `CGAL_TEST_DRAW_FUNCTIONS` | `OFF` |
++
++重新 Configure、Generate，再手动执行 INSTALL。本安装流程不下载或安装第三方工具或库，也不替使用方配置依赖二进制。
++
++### `CMAKE_INSTALL_PREFIX` 相对路径
++
++相对路径以 CMake GUI 的 **Where to build the binaries**（顶层 `CMAKE_BINARY_DIR`）为基准，与源码目录、启动 GUI 的目录无关。假设构建目录是 `<build>`：
++
++| GUI 填入值 | 实际安装目录 |
++| --- | --- |
++| `cgal-v6.2.1-HeaderOnly-vc143-x64` | `<build>/cgal-v6.2.1-HeaderOnly-vc143-x64` |
++| `../cgal-v6.2.1-Whitelist-vc143-x64` | `<source>/cgal-v6.2.1-Whitelist-vc143-x64` |
++| `<absolute-sdk-prefix>` | `<absolute-sdk-prefix>` |
++
++GUI 中不加引号。脚本保留缓存中的填写值，配置时解析成绝对路径，并打印 `CGAL install prefix: 输入值 -> 实际目录`。所有安装规则和旧文件检查使用同一个实际目录。
++
++### `CGAL_INSTALL_PACKAGE_WHITELIST` 的具体填法
++
++这是 **STRING 类型的包名列表**，不是 ON/OFF 或路径。当前完整默认值为：
++
++```text
++Algebraic_foundations;Algebraic_kernel_d;Arithmetic_kernel;BGL;Cartesian_kernel;CGAL_Core;CGAL_ImageIO;CGAL_ipelets;Circulator;Combinatorial_map;Distance_2;Distance_3;Filtered_kernel;Generalized_map;Generator;HalfedgeDS;Hash_map;Homogeneous_kernel;Installation;Intersections_2;Intersections_3;Interval_support;Kernel_23;Kernel_d;LEDA;Linear_cell_complex;Mesher_level;Modifier;Modular_arithmetic;NewKernel_d;Number_types;Optimisation_basic;Polygon;Polynomial;Principal_component_analysis_LGPL;Profiling_tools;Property_map;Random_numbers;Solver_interface;Spatial_sorting;STL_Extension;Stream_support;Subdivision_method_3;Testsuite;Union_find;Weights
++```
++
++1. Configure 后在 Search 中输入 `CGAL_INSTALL_PACKAGE_WHITELIST`。
++2. 双击 Value，粘贴上面的一整行。**不加双引号、不加 `-D`，包名之间只用英文分号，保留大小写，不添加空格或换行。**
++3. 再 Configure、Generate，查看生成的 `install-whitelist/INSTALL_WHITELIST.txt`，然后执行 INSTALL。
++
++首次配置前也可通过 **Add Entry** 添加，Type 选 `STRING`。必须保留 `Installation`；不能填 `ALL`、通配符或未经批准包名。组件名 `ImageIO` 不等于包名 `CGAL_ImageIO`。
++
++**从旧版本升级：** 如果缓存列表恰好是之前完整的 44 个包（忽略顺序和重复项），Configure 会自动升级到 46 个，加入 `LEDA`、`CGAL_ipelets`。自定义删减的列表保持不变；需要恢复完整功能时重新粘贴上述默认值。清空该值会报错，不表示恢复默认。
++
++删包会继续移除依赖该包头文件的其他头文件，脚本不会自动补回依赖包。因此，不使用某个可选第三方接口时通常不必删包，避免在使用方包含或启用该接口即可。
++
++### 安装内容与重新安装
++
++这是头文件 SDK，CGAL 本身没有需要按 Debug/Release 区分的算法二进制库。使用方仍需匹配第三方库的架构、运行时和构建配置；GMP/MPFR 沿用动态库及各自的 Debug/Release 安装位置。
++
++执行 INSTALL 时自动安装：
++
++- 筛选后的 `include/CGAL/` 头文件，以及 CMake 支持文件。
++- `<prefix>/share/doc/CGAL/INSTALL_WHITELIST.md`：本说明，无需手动复制。
++- 同目录 `INSTALL_WHITELIST.txt`：实际选择的包、安装头文件及被排除头文件和原因。
++- 同目录的许可文本及 `package_licenses/<包名>/license.txt`。
++- `<prefix>/lib/cmake/CGAL/CGALInstallSelection.cmake`：当前 SDK 的包和组件信息。
++
++文档目录可通过 `CGAL_INSTALL_DOC_DIR` 修改。BSD 许可全文 `LICENSE.CMAKE` 同时以 `Copyright.txt` 安装到 CMake 模块目录及其 `Help/` 目录，供 `FindTBB.cmake`、`FindITT.cmake` 和 `Help/cmake.py` 引用。
++
++旧目录若存在本次白名单之外的头文件或未经审核的旧 demo 资源，INSTALL 会报错；请换新目录或手动清理旧安装。脚本不删除文件。当前完整 46 包选择是之前 44 包/1407 头文件安装的扩展，静态核对未移除原有头文件，因此已清理过的旧白名单 SDK 可以重新 INSTALL 更新。自定义删包、升级版本或曾经全量安装时仍需检查残留。
++
++仅修改源码不会自动更新现有 SDK。需要重新 Configure、Generate、INSTALL；不要直接修改构建目录中生成的安装脚本。
++
++## 默认包和第三方依赖
++
++这份源码有 154 个包，当前批准名单为 46 个包，其包级元数据均为 `LGPL (v3 or later)`。这是 CGAL 6.2.1 的审核结果，不代表仅允许 LGPL；包内头文件与 CMake 支持文件仍分别按实际许可处理。逐文件核对 SPDX 和 CGAL 内部引用关系，其余 GPL 或混合/不明确许可包不整体批准；升级或扩充范围须重新审核名单与校验值。
++
++包被列入不代表包内每个接口都可用。当前静态扫描预计保留 **1454 个头文件，排除 38 项**；最终以手动 Configure 生成的报告为准。这 38 项包括旧 ImageIO Attic 文件、许可生成器元数据，以及依赖未批准 CGAL 包的头文件。
++
++| 白名单包 | 使用范围与依赖说明 |
++| --- | --- |
++| `Algebraic_foundations`、`Interval_support`、`Modular_arithmetic` | 数值基础设施，使用所选数值类型的依赖 |
++| `Algebraic_kernel_d`、`Arithmetic_kernel`、`Number_types`、`Polynomial` | GMP/MPFR/Boost 数值路径，以及可选 LEDA、MPFI 路径 |
++| `CGAL_Core` | Core 数值支持，使用 Boost.Multiprecision 等选定后端 |
++| `Cartesian_kernel`、`Homogeneous_kernel`、`Filtered_kernel`、`Kernel_d` | 基础几何核，具体数值类型决定依赖 |
++| `Kernel_23` | 二维/三维核；Eigen 维数互操作、LEDA 类型转换为可选接口 |
++| `NewKernel_d` | `Epick_d`、`Epeck_d` 等实现需要 Eigen |
++| `Distance_2`、`Distance_3`、`Intersections_2`、`Intersections_3` | 继承所用几何核和数值类型的依赖 |
++| `Circulator`、`Hash_map`、`Union_find`、`Property_map`、`Modifier`、`Optimisation_basic` | 泛型辅助设施，通常使用基础头文件依赖 |
++| `STL_Extension` | 基础工具；TBB 并发容器、OpenMesh 哈希、LEDA 分支等按需使用 |
++| `Generator`、`Random_numbers` | 基础生成器与随机数工具 |
++| `Spatial_sorting`、`Profiling_tools` | 串行功能可独立使用；相关并行和计数器接口使用 TBB |
++| `Combinatorial_map`、`Generalized_map`、`Linear_cell_complex` | 拓扑数据结构；并发存储可能继承 TBB 依赖 |
++| `HalfedgeDS`、`BGL`、`Subdivision_method_3` | 泛型图、半边结构和细分工具；BGL 的 OpenMesh、METIS、VTK、3MF 接口按需使用。所选网格类型还须满足其自身许可 |
++| `Polygon`、`Weights` | 多边形与权重基础工具；依赖所选 Traits 和数值类型 |
++| `Principal_component_analysis_LGPL` | `centroid.h`、`barycenter.h`、`bounding_box.h`；不是 GPL 的完整 PCA/拟合包 |
++| `Solver_interface` | 保留 Eigen、GLPK、SCIP、OSQP 等适配头文件；外部求解器的许可需另行审核 |
++| `Stream_support` | 基础流和 OBJ/OFF/PLY/STL/XYZ；LASlib、VTK、lib3mf 等扩展格式按需准备依赖 |
++| `CGAL_ImageIO` | 图像 IO；zlib 压缩支持与 VTK 图像转换接口按需使用 |
++| `LEDA` | 保留 LGPL 的 `CGAL/LEDA_basic.h` 适配层；这不包含或授权使用 LEDA 库本体 |
++| `CGAL_ipelets` | 当前仅保留 `grabbers.h`；三个 Ipelet base 头文件引用 GPL 三角剖分而被排除，不能据此认为获得完整 Ipe 插件支持 |
++| `Installation` | 必需配置、版本、许可检查；恢复 `CGAL/gl.h`、`CGAL/glu.h` 包装和可选 VLD 支持 |
++| `Mesher_level`、`Testsuite` | LGPL 内部/测试辅助头文件，不包含 GPL 网格生成算法或测试程序 |
++
++### 按第三方库反查模块
++
++| 第三方库 | 使用它的白名单模块 | 何时需要提供 |
++| --- | --- | --- |
++| Boost | 基础配置及大多数包；数值、BGL 和流接口尤其常用 | 基础头文件通常必需；序列化/iostreams 等具体用法可能需要已准备的静态组件 |
++| GMP、MPFR | `Number_types`、`STL_Extension` 的适配，以及经数值后端间接使用它们的核、Core、多项式、代数核 | 默认 CMake 数值配置会查找 GMP/MPFR；不能仅因没有主动调用它们就省略。继续使用已准备的动态库 |
++| zlib | `CGAL_ImageIO` | 图像压缩；ImageIO 组件会尝试查找，缺失时上游配置关闭压缩能力 |
++| Eigen | `NewKernel_d`、`Solver_interface`、`Kernel_23` | Eigen 高维核、矩阵、SVD、求解器或维数互操作 |
++| TBB | `STL_Extension`、`Spatial_sorting`、`Profiling_tools`；其他包可间接使用 | 相应并发/并行接口，串行路径通常不需要 |
++| OpenGL、GLU、OpenGL ES | `Installation` 的 `gl.h`、`glu.h` | 包含这些包装头或使用相应图形 API；GLU 是 OpenGL Utility Library，不是 Qt 的一部分 |
++| LEDA | `LEDA`、`Number_types`、`Kernel_23`、`Algebraic_kernel_d`、`Polynomial`、`STL_Extension`；数值核可间接使用 | LEDA 数值后端、转换或适配 |
++| MPFI | `Number_types`，经数值接口被 `Arithmetic_kernel`、`Algebraic_kernel_d` 等间接使用 | MPFI 任意精度区间运算，另需其 GMP/MPFR 依赖 |
++| OpenMesh | `BGL`、`STL_Extension` | OpenMesh 图适配、IO、哈希 |
++| METIS | `BGL` | 图划分接口 |
++| VTK | `Stream_support`、`BGL`、`CGAL_ImageIO` | VTK 网格 IO、图像数据转换 |
++| LASlib | `Stream_support` | LAS 点云读写接口 |
++| lib3mf | `Stream_support`，`BGL` 间接调用 | 3MF 格式读写 |
++| GLPK、SCIP、OSQP | `Solver_interface` | 对应外部求解器适配；CGAL 适配层为 LGPL 并不证明外部库可用于闭源分发 |
++| VLD | `Installation` | 在 Windows 显式启用 Visual Leak Detector 调试支持时 |
++| Qt | 当前保留的 CGAL 功能头文件没有直接 Qt 接口；CMake 探测辅助文件可以保留 | 使用方自己的 Qt 代码单独配置；下述 CGAL Qt 查看器仍未获得许可批准 |
++
++表格描述 CGAL 的直接接口及常见间接关系，不是第三方库本体的许可白名单。外部库及其传递依赖、具体版本、静态/动态链接方式必须满足商用闭源要求；不符合的依赖应保持未使用，或取得适当授权。
++
++CMake 目录保留的 `Find*.cmake`、版本探测源文件、历史模板不是自动启用清单。安装它们不要求准备其中提到的全部库。一般 `find_package(CGAL)` 只设置基础组件的依赖；额外组件、目标、宏和直接包含的头文件决定进一步需求。
++
++## 为什么允许 Qt 之后，CGAL 查看器仍不可用
++
++允许使用外部 Qt/OpenGL/GLU，不会改变 CGAL 自己的许可证。`GraphicsView`、`Basic_viewer` 等包没有通过本许可白名单；其 GPL/混合许可代码及未审核资源仍不安装。白名单包内的 `draw_face_graph.h`、`draw_polygon_2.h`、`draw_linear_cell_complex.h` 等接口引用这些未批准头文件，也仍然排除。
++
++因此当前 SDK 提供 `Core`、`ImageIO` 组件，不提供 `Qt6` / `CGAL::CGAL_Basic_viewer`。请求被排除组件时会说明是 **CGAL 许可选择**导致不可用，不再提示“禁止 Qt”。使用方可以独立使用符合自身许可条件的 Qt 与 OpenGL。
++
++`Installation` 是必需基础设施包，不应因它包含少量图形包装就整包删除。`gl.h`、`glu.h` 自身为 LGPL，现已恢复；没有包含/使用它们的数值或几何代码不因此需要 OpenGL/GLU。
++
++## 筛选规则与分发义务
++
++1. 包名必须位于固定批准名单；包许可和头文件 SPDX 使用完整表达式匹配。不能因 `GPL AND MIT` 包含 `MIT` 就接受，也不能把 `OR LicenseRef-Commercial` 当成已经买过商业许可证。
++2. 继续检查字面 `#include` 的 CGAL 内部关系。引用未批准/缺失 CGAL 头文件的调用方也排除，直到引用闭合。外部头文件名称不再触发排除。
++3. 保留两处已审核例外：`Image_3_impl.h` 的 `#if 0` 死代码，以及本 SDK 不支持的非 header-only 配置分支。旧 ImageIO Attic 和许可生成器元数据不作为 SDK API 安装。
++4. 安装版 `config.h` 保留版权和本地修改说明，启用 `CGAL_LICENSE_ERROR`，不定义 `CGAL_LGPL_LICENSE_ERROR` 或虚构商业许可证宏。删除原先针对 LEDA、MPFI、VTK、OpenMesh、LASlib、3MF、Qt、VLD 的统一报错。
++5. CMake 辅助文件不按依赖库名通配过滤，避免 `*GLES*` 在 Windows 上误删名称含 `SingleSource` 的必需脚本。仅排除本地安装器实现文件。
++6. 不复制辅助目录中的第三方 DLL/静态库，也不把第三方二进制捆绑进 CGAL SDK。
++
++GPL 的 AABB_tree、Surface_mesh、Polyhedron、三角剖分、完整 PCA、点云处理、重建、网格修复/布尔算法仍不在白名单。第三方依赖齐全不会改变这一点。
++
++`CGAL/license/` 中以 GPL 包命名的检查头文件自身属于 LGPL，保留它们不等于安装对应算法。`LICENSE.GPL` 是 LGPLv3 所引用的许可文本，也应保留。
++
++下游明确指定 `CGAL_DIR=<实际安装目录>/lib/cmake/CGAL`，使用 `find_package(CGAL CONFIG REQUIRED)` 和 `CGAL::CGAL`；需要 Core/ImageIO 时再请求对应组件。源码树和原构建目录仍可访问完整源码，不应混入受限 SDK 的 include 路径。
++
++各文件和外部依赖分别按自身实际适用的许可分发，不统一套用 LGPL。对适用 LGPL 的内容，仍须履行相应的通知、许可文本、修改源码及替换/重新链接等义务；BSD、BSL、CC0 等内容按各自条款处理。当前 `config.h` 含本地修改，应保留并按适用条款提供对应修改源码。分发 `FindTBB.cmake` 等 BSD 脚本时，即使没启用 TBB，也须随带脚本自身的版权和许可文本。
++
++升级 CGAL 时重新审核包许可、每文件 SPDX 和依赖闭合。当前实现仅接受 6.2.1，不自动批准其他版本或新包。静态筛选不是完整 C++ 预处理或最终产品分发审计。
++
++依据：
++
++- 本地 `*/package_info/*/license.txt`、每文件 SPDX 和实际 include 关系。
++- [CGAL 官方许可说明](https://doc.cgal.org/6.2.1/Manual/license.html)。
++- [CGAL 官方第三方依赖说明](https://doc.cgal.org/6.2.1/Manual/thirdparty.html)。
++- [LGPLv3 条款](https://www.gnu.org/licenses/lgpl-3.0.html)。
++- `LICENSE.CMAKE` 来源：[Kitware/CMake v3.0.0 的 Copyright.txt](https://raw.githubusercontent.com/Kitware/CMake/v3.0.0/Copyright.txt)，原文保留。
+diff --git a/Installation/LICENSE.CMAKE b/Installation/LICENSE.CMAKE
+new file mode 100644
+--- /dev/null
++++ b/Installation/LICENSE.CMAKE
+@@ -0,0 +1,57 @@
++CMake - Cross Platform Makefile Generator
++Copyright 2000-2014 Kitware, Inc.
++Copyright 2000-2011 Insight Software Consortium
++All rights reserved.
++
++Redistribution and use in source and binary forms, with or without
++modification, are permitted provided that the following conditions
++are met:
++
++* Redistributions of source code must retain the above copyright
++  notice, this list of conditions and the following disclaimer.
++
++* Redistributions in binary form must reproduce the above copyright
++  notice, this list of conditions and the following disclaimer in the
++  documentation and/or other materials provided with the distribution.
++
++* Neither the names of Kitware, Inc., the Insight Software Consortium,
++  nor the names of their contributors may be used to endorse or promote
++  products derived from this software without specific prior written
++  permission.
++
++THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
++"AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
++LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
++A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
++HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
++SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
++LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
++DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
++THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
++(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
++OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
++
++------------------------------------------------------------------------------
++
++The above copyright and license notice applies to distributions of
++CMake in source and binary form.  Some source files contain additional
++notices of original copyright by their contributors; see each source
++for details.  Third-party software packages supplied with CMake under
++compatible licenses provide their own copyright notices documented in
++corresponding subdirectories.
++
++------------------------------------------------------------------------------
++
++CMake was initially developed by Kitware with the following sponsorship:
++
++ * National Library of Medicine at the National Institutes of Health
++   as part of the Insight Segmentation and Registration Toolkit (ITK).
++
++ * US National Labs (Los Alamos, Livermore, Sandia) ASC Parallel
++   Visualization Initiative.
++
++ * National Alliance for Medical Image Computing (NAMIC) is funded by the
++   National Institutes of Health through the NIH Roadmap for Medical Research,
++   Grant U54 EB005149.
++
++ * Kitware, Inc.
+diff --git a/Installation/README.md b/Installation/README.md
+--- a/Installation/README.md
++++ b/Installation/README.md
+@@ -30,3 +30,7 @@
+ | `scripts/`        | some useful scripts for CGAL programmers                                                         |
+ 
+ [CMake package]: https://cmake.org/cmake/help/latest/manual/cmake-packages.7.html
++
++Local CGAL 6.2.1 installation policy: see
++[安装白名单与第三方依赖](INSTALL_WHITELIST.md) for the package selection reviewed
++for proprietary applications, CMake GUI settings and optional dependencies.
+diff --git a/Installation/cmake/modules/CGALInstallSelection.cmake.in b/Installation/cmake/modules/CGALInstallSelection.cmake.in
+new file mode 100644
+--- /dev/null
++++ b/Installation/cmake/modules/CGALInstallSelection.cmake.in
+@@ -0,0 +1,4 @@
++# Local CGAL 6.2.1 installation policy; generated, do not edit.
++set(CGAL_RESTRICTED_INSTALL TRUE)
++set(CGAL_INSTALLED_PACKAGES "@selected_packages@")
++set(CGAL_INSTALLED_COMPONENTS "@components@")
+diff --git a/Installation/cmake/modules/CGAL_InstallWhitelist.cmake b/Installation/cmake/modules/CGAL_InstallWhitelist.cmake
+new file mode 100644
+--- /dev/null
++++ b/Installation/cmake/modules/CGAL_InstallWhitelist.cmake
+@@ -0,0 +1,259 @@
++# Local installation policy for CGAL 6.2.1.
++# See Installation/INSTALL_WHITELIST.md before changing this list.
++# This is deliberately not an option to switch back to installing every package.
++
++set(CGAL_INSTALL_WHITELIST_MODULE_DIR "${CMAKE_CURRENT_LIST_DIR}")
++# Exclude only local installer implementation files, never dependency names.
++# In particular, *GLES* also matched SingleSource on Windows.
++set(CGAL_INSTALL_EXCLUDED_MODULE_PATTERNS
++  "CGAL_InstallWhitelist.cmake" "CGAL_InstallWhitelistGuard.cmake.in"
++  "CGALInstallSelection.cmake.in" "CGAL_install_policy.h.in")
++set(CGAL_INSTALL_MODULE_EXCLUSIONS)
++foreach(pattern IN LISTS CGAL_INSTALL_EXCLUDED_MODULE_PATTERNS)
++  list(APPEND CGAL_INSTALL_MODULE_EXCLUSIONS PATTERN "${pattern}" EXCLUDE)
++endforeach()
++
++function(cgal_install_whitelisted_headers)
++  # Canonicalize both sides of relative include resolution on Windows.
++  # Mixing an 8.3 source path with its long path would hide CGAL edges.
++  file(REAL_PATH "${CGAL_SOURCE_DIR}" CGAL_SOURCE_DIR)
++  if(NOT CGAL_BRANCH_BUILD OR NOT CGAL_VERSION_PUBLIC_RELEASE_VERSION STREQUAL "6.2.1")
++    message(FATAL_ERROR "The installation whitelist requires the CGAL 6.2.1 Git source layout. Review it before upgrading.")
++  endif()
++
++  # These packages have been reviewed for use in proprietary applications.
++  # LGPL is one accepted license family, not the sole eligibility criterion.
++  # External dependencies are supplied and licensed by the consuming project.
++  set(approved_packages
++    Algebraic_foundations Algebraic_kernel_d Arithmetic_kernel BGL
++    Cartesian_kernel CGAL_Core CGAL_ImageIO CGAL_ipelets Circulator Combinatorial_map
++    Distance_2 Distance_3 Filtered_kernel Generalized_map Generator HalfedgeDS
++    Hash_map Homogeneous_kernel Installation Intersections_2 Intersections_3
++    Interval_support Kernel_23 Kernel_d LEDA Linear_cell_complex Mesher_level
++    Modifier Modular_arithmetic NewKernel_d Number_types Optimisation_basic
++    Polygon Polynomial Principal_component_analysis_LGPL Profiling_tools
++    Property_map Random_numbers Solver_interface Spatial_sorting STL_Extension
++    Stream_support Subdivision_method_3 Testsuite Union_find Weights)
++  set(CGAL_INSTALL_PACKAGE_WHITELIST "${approved_packages}" CACHE STRING
++    "CGAL 6.2.1 packages to install (semicolon separated; only license-reviewed packages)")
++  # Migrate the previous complete default, but preserve custom subsets.
++  set(previous_default ${approved_packages})
++  list(REMOVE_ITEM previous_default LEDA CGAL_ipelets)
++  list(SORT previous_default)
++  set(cached_selection ${CGAL_INSTALL_PACKAGE_WHITELIST})
++  list(REMOVE_DUPLICATES cached_selection)
++  list(SORT cached_selection)
++  if("${cached_selection}" STREQUAL "${previous_default}")
++    set(CGAL_INSTALL_PACKAGE_WHITELIST "${approved_packages}" CACHE STRING
++      "CGAL 6.2.1 packages to install (semicolon separated; only license-reviewed packages)" FORCE)
++    message(STATUS "CGAL installation whitelist: upgraded the previous 44-package default to 46 license-reviewed packages.")
++  endif()
++  set(selected_packages ${CGAL_INSTALL_PACKAGE_WHITELIST})
++  list(REMOVE_DUPLICATES selected_packages)
++  list(SORT selected_packages)
++  if(NOT "Installation" IN_LIST selected_packages)
++    message(FATAL_ERROR "CGAL_INSTALL_PACKAGE_WHITELIST must contain Installation.")
++  endif()
++  if(NOT CGAL_INSTALL_INC_DIR STREQUAL "include")
++    message(FATAL_ERROR "The restricted CGAL SDK requires CGAL_INSTALL_INC_DIR=include.")
++  endif()
++  if(NOT CGAL_INSTALL_DOC_DIR)
++    message(FATAL_ERROR "CGAL_INSTALL_DOC_DIR must be set so that license texts and the selection report are installed.")
++  endif()
++  foreach(directory CGAL_INSTALL_CMAKE_DIR CGAL_INSTALL_DOC_DIR)
++    if(IS_ABSOLUTE "${${directory}}" OR "${${directory}}" MATCHES "(^|[/\\\\])\\.\\.([/\\\\]|$)")
++      message(FATAL_ERROR "${directory} must be a relative directory inside the SDK prefix.")
++    endif()
++  endforeach()
++
++  set(headers)
++  set(excluded)
++  # Match reviewed expressions exactly: never accept a license merely because
++  # it contains "MIT", etc. An AND with GPL still imposes the GPL obligations.
++  # New packages still require review and addition to approved_packages above,
++  # including installation of their license texts and notices.
++  set(approved_spdx
++    "LGPL-2.1-only" "LGPL-2.1-or-later" "LGPL-3.0-only" "LGPL-3.0-or-later"
++    "LGPL-3.0-or-later OR LicenseRef-Commercial"
++    "MIT" "BSD-2-Clause" "BSD-3-Clause" "Apache-2.0" "BSL-1.0" "Zlib"
++    "ISC" "CC0-1.0" "MPL-2.0")
++  set(approved_package_licenses ${approved_spdx}
++    "LGPL (v2.1 or later)" "LGPL (v3 or later)")
++  foreach(package IN LISTS selected_packages)
++    if(NOT package IN_LIST approved_packages)
++      message(FATAL_ERROR "Package '${package}' is not in the approved license whitelist.")
++    endif()
++    set(package_root "${CGAL_SOURCE_DIR}/${package}")
++    set(license_file "${package_root}/package_info/${package}/license.txt")
++    if(NOT EXISTS "${license_file}")
++      message(FATAL_ERROR "Missing package license metadata: ${license_file}")
++    endif()
++    file(READ "${license_file}" package_license)
++    string(STRIP "${package_license}" package_license)
++    if(NOT package_license IN_LIST approved_package_licenses)
++      message(FATAL_ERROR "Package license needs review for proprietary distribution: ${package}: ${package_license}")
++    endif()
++    set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${license_file}")
++    file(GLOB_RECURSE package_headers CONFIGURE_DEPENDS LIST_DIRECTORIES FALSE
++      RELATIVE "${package_root}/include" "${package_root}/include/CGAL/*")
++    foreach(header IN LISTS package_headers)
++      # Attic contains obsolete ImageIO interfaces with unresolved includes.
++      # The license generator files are development metadata, not C++ headers.
++      if(header MATCHES "^CGAL/ImageIO/Attic/"
++          OR header MATCHES "^CGAL/license/(generate_files\\.cmake|gpl_package_list\\.txt|README\\.md)$")
++        list(APPEND excluded "${package}: ${header} [development/obsolete file]")
++        continue()
++      endif()
++      set(source "${package_root}/include/${header}")
++      file(STRINGS "${source}" spdx_line REGEX "SPDX-License-Identifier:" LIMIT_COUNT 1)
++      string(REGEX REPLACE ".*SPDX-License-Identifier:[ \t]*" "" spdx "${spdx_line}")
++      string(STRIP "${spdx}" spdx)
++      if(NOT spdx IN_LIST approved_spdx)
++        message(FATAL_ERROR "Unreviewed file license '${spdx}' in ${source}")
++      endif()
++      string(SHA256 key "${header}")
++      if(DEFINED source_${key})
++        message(FATAL_ERROR "Duplicate install header: ${header}")
++      endif()
++      set(source_${key} "${source}")
++      set(owner_${key} "${package}")
++      set(available_${key} TRUE)
++      set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${source}")
++      list(APPEND headers "${header}")
++    endforeach()
++  endforeach()
++  list(SORT headers)
++
++  # Conservative literal-include analysis, not a C++ preprocessor. A reference
++  # to an excluded CGAL header excludes its caller, including conditional uses.
++  # Only dead VTK code and the non-header-only configuration path are exempt.
++  # External includes do not exclude a header: dependencies are optional until
++  # the consuming project selects an interface that needs them.
++  set(disabled_edges
++    "^CGAL/Image_3_impl\\.h\\|CGAL/Image_3_vtk_interface\\.h$"
++    "^CGAL/config\\.h\\|CGAL/compiler_config\\.h$")
++  foreach(header IN LISTS headers)
++    string(SHA256 key "${header}")
++    file(STRINGS "${source_${key}}" include_lines REGEX "^[ \t]*#[ \t]*include([ \t]+|[<\"])")
++    foreach(line IN LISTS include_lines)
++      if(NOT line MATCHES "^[ \t]*#[ \t]*include[ \t]*([<\"])([^>\"]+)[>\"]")
++        message(FATAL_ERROR "Non-literal include needs manual whitelist review: ${header}: ${line}")
++      endif()
++      set(delimiter "${CMAKE_MATCH_1}")
++      set(dependency "${CMAKE_MATCH_2}")
++      if(delimiter STREQUAL "\"")
++        get_filename_component(source_dir "${source_${key}}" DIRECTORY)
++        if(EXISTS "${source_dir}/${dependency}")
++          get_filename_component(resolved "${source_dir}/${dependency}" ABSOLUTE)
++          file(RELATIVE_PATH dependency
++            "${CGAL_SOURCE_DIR}/${owner_${key}}/include" "${resolved}")
++        endif()
++      endif()
++      set(disabled FALSE)
++      foreach(pattern IN LISTS disabled_edges)
++        if("${header}|${dependency}" MATCHES "${pattern}")
++          set(disabled TRUE)
++          break()
++        endif()
++      endforeach()
++      if(disabled)
++        continue()
++      endif()
++      if(dependency MATCHES "^CGAL/")
++        list(APPEND dependencies_${key} "${dependency}")
++      endif()
++    endforeach()
++  endforeach()
++  set(changed TRUE)
++  while(changed)
++    set(changed FALSE)
++    foreach(header IN LISTS headers)
++      string(SHA256 key "${header}")
++      if(NOT available_${key})
++        continue()
++      endif()
++      foreach(dependency IN LISTS dependencies_${key})
++        string(SHA256 dependency_key "${dependency}")
++        if(NOT available_${dependency_key})
++          set(available_${key} FALSE)
++          set(reason_${key} "requires excluded/missing ${dependency}")
++          set(changed TRUE)
++          break()
++        endif()
++      endforeach()
++    endforeach()
++  endwhile()
++
++  set(installed_headers)
++  foreach(header IN LISTS headers)
++    string(SHA256 key "${header}")
++    if(available_${key})
++      list(APPEND installed_headers "${header}")
++    else()
++      list(APPEND excluded "${owner_${key}}: ${header} [${reason_${key}}]")
++    endif()
++  endforeach()
++  foreach(required CGAL/config.h CGAL/license.h CGAL/version.h)
++    if(NOT required IN_LIST installed_headers)
++      message(FATAL_ERROR "Selection removed essential header ${required}. Restore the default package whitelist.")
++    endif()
++  endforeach()
++
++  # Only the installed copy of config.h is changed. Keep upstream copyright
++  # and license notices, and make this local modification explicit.
++  set(output_dir "${CGAL_BINARY_DIR}/install-whitelist")
++  file(MAKE_DIRECTORY "${output_dir}")
++  file(READ "${CGAL_SOURCE_DIR}/Installation/include/CGAL/config.h" config_header)
++  file(READ "${CGAL_INSTALL_WHITELIST_MODULE_DIR}/config/CGAL_install_policy.h.in" policy_header)
++  set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
++    "${CGAL_INSTALL_WHITELIST_MODULE_DIR}/config/CGAL_install_policy.h.in")
++  if(NOT config_header MATCHES "#define CGAL_CONFIG_H")
++    message(FATAL_ERROR "CGAL/config.h changed; review the installed policy insertion point.")
++  endif()
++  string(REPLACE "#define CGAL_CONFIG_H" "#define CGAL_CONFIG_H\n${policy_header}" config_header "${config_header}")
++  file(WRITE "${output_dir}/config.h" "${config_header}")
++
++  # This guard runs before any SDK files are copied; never delete old SDK files.
++  configure_file("${CGAL_INSTALL_WHITELIST_MODULE_DIR}/CGAL_InstallWhitelistGuard.cmake.in"
++    "${output_dir}/check-prefix.cmake" @ONLY)
++  install(SCRIPT "${output_dir}/check-prefix.cmake")
++  foreach(header IN LISTS installed_headers)
++    string(SHA256 key "${header}")
++    get_filename_component(header_dir "${header}" DIRECTORY)
++    if(header STREQUAL "CGAL/config.h")
++      set(source "${output_dir}/config.h")
++    elseif(header STREQUAL "CGAL/version.h")
++      set(source "${CGAL_BINARY_DIR}/include/CGAL/version.h")
++    else()
++      set(source "${source_${key}}")
++    endif()
++    install(FILES "${source}" DESTINATION "${CGAL_INSTALL_INC_DIR}/${header_dir}")
++  endforeach()
++
++  set(components)
++  foreach(component Core ImageIO)
++    if("CGAL_${component}" IN_LIST selected_packages)
++      list(APPEND components "${component}")
++    endif()
++  endforeach()
++  configure_file("${CGAL_INSTALL_WHITELIST_MODULE_DIR}/CGALInstallSelection.cmake.in"
++    "${output_dir}/CGALInstallSelection.cmake" @ONLY)
++  install(FILES "${output_dir}/CGALInstallSelection.cmake" DESTINATION "${CGAL_INSTALL_CMAKE_DIR}")
++  list(SORT excluded)
++  string(REPLACE ";" "\n" package_report "${selected_packages}")
++  string(REPLACE ";" "\n" header_report "${installed_headers}")
++  string(REPLACE ";" "\n" excluded_report "${excluded}")
++  file(WRITE "${output_dir}/INSTALL_WHITELIST.txt"
++    "CGAL 6.2.1 local installation policy\nSee INSTALL_WHITELIST.md for limitations and license obligations.\nExternal dependencies are not filtered or bundled; review them when using an interface.\n\nSelected license-reviewed packages:\n${package_report}\n\nInstalled headers:\n${header_report}\n\nExcluded headers from selected packages:\n${excluded_report}\n")
++  install(FILES "${output_dir}/INSTALL_WHITELIST.txt"
++    "${CGAL_SOURCE_DIR}/Installation/INSTALL_WHITELIST.md" DESTINATION "${CGAL_INSTALL_DOC_DIR}")
++  foreach(package IN LISTS selected_packages)
++    install(FILES "${CGAL_SOURCE_DIR}/${package}/package_info/${package}/license.txt"
++      DESTINATION "${CGAL_INSTALL_DOC_DIR}/package_licenses/${package}")
++  endforeach()
++  list(LENGTH installed_headers header_count)
++  list(LENGTH selected_packages package_count)
++  list(LENGTH excluded excluded_count)
++  message(STATUS "CGAL installation whitelist: ${package_count} packages, ${header_count} headers, ${excluded_count} exclusions")
++  message(STATUS "CGAL installation report: ${output_dir}/INSTALL_WHITELIST.txt")
++endfunction()
+diff --git a/Installation/cmake/modules/CGAL_InstallWhitelistGuard.cmake.in b/Installation/cmake/modules/CGAL_InstallWhitelistGuard.cmake.in
+new file mode 100644
+--- /dev/null
++++ b/Installation/cmake/modules/CGAL_InstallWhitelistGuard.cmake.in
+@@ -0,0 +1,25 @@
++# Generated at configuration time. Checked before installing any SDK files.
++cmake_policy(PUSH)
++cmake_policy(SET CMP0057 NEW)
++set(_cgal_expected_headers "@installed_headers@")
++set(_cgal_include "$ENV{DESTDIR}${CMAKE_INSTALL_PREFIX}/@CGAL_INSTALL_INC_DIR@")
++file(GLOB_RECURSE _cgal_existing LIST_DIRECTORIES FALSE
++  RELATIVE "${_cgal_include}" "${_cgal_include}/CGAL/*")
++foreach(_cgal_header IN LISTS _cgal_existing)
++  if(NOT _cgal_header IN_LIST _cgal_expected_headers)
++    message(FATAL_ERROR
++      "CGAL install prefix contains a header outside the current whitelist: ${_cgal_include}/${_cgal_header}\nChoose a new empty SDK prefix or clean the previous CGAL installation manually. No files were deleted.")
++  endif()
++endforeach()
++if(EXISTS "$ENV{DESTDIR}${CMAKE_INSTALL_PREFIX}/@CGAL_INSTALL_CMAKE_DIR@/demo")
++  message(FATAL_ERROR "Old demo resources outside the license-reviewed SDK exist in this prefix. Use a new empty SDK prefix.")
++endif()
++set(_cgal_excluded_patterns "@CGAL_INSTALL_EXCLUDED_MODULE_PATTERNS@")
++foreach(_cgal_pattern IN LISTS _cgal_excluded_patterns)
++  file(GLOB_RECURSE _cgal_old_modules
++    "$ENV{DESTDIR}${CMAKE_INSTALL_PREFIX}/@CGAL_INSTALL_CMAKE_DIR@/${_cgal_pattern}")
++  if(_cgal_old_modules)
++    message(FATAL_ERROR "Old excluded CGAL CMake files exist: ${_cgal_old_modules}. Use a new empty SDK prefix.")
++  endif()
++endforeach()
++cmake_policy(POP)
+diff --git a/Installation/cmake/modules/config/CGAL_install_policy.h.in b/Installation/cmake/modules/config/CGAL_install_policy.h.in
+new file mode 100644
+--- /dev/null
++++ b/Installation/cmake/modules/config/CGAL_install_policy.h.in
+@@ -0,0 +1,12 @@
++
++// Local modification (2026-10-20): installed SDK license policy.
++// SPDX-License-Identifier: LGPL-3.0-or-later
++// External interfaces are not blocked by dependency name.
++// Consumers supply and review the dependencies of the interfaces they use.
++#ifndef CGAL_LICENSE_ERROR
++#  define CGAL_LICENSE_ERROR 1
++#endif
++#if defined(CGAL_NOT_HEADER_ONLY) && CGAL_NOT_HEADER_ONLY
++#  error "This CGAL SDK supports header-only use."
++#endif
++
+diff --git a/Installation/lib/cmake/CGAL/CGALConfig-installation-dirs.cmake.in b/Installation/lib/cmake/CGAL/CGALConfig-installation-dirs.cmake.in
+--- a/Installation/lib/cmake/CGAL/CGALConfig-installation-dirs.cmake.in
++++ b/Installation/lib/cmake/CGAL/CGALConfig-installation-dirs.cmake.in
+@@ -1 +1 @@
+-set(CGAL_ROOT @CMAKE_INSTALL_PREFIX@)
++set(CGAL_ROOT "@CMAKE_INSTALL_PREFIX@")
+diff --git a/Installation/lib/cmake/CGAL/CGALConfig.cmake b/Installation/lib/cmake/CGAL/CGALConfig.cmake
+--- a/Installation/lib/cmake/CGAL/CGALConfig.cmake
++++ b/Installation/lib/cmake/CGAL/CGALConfig.cmake
+@@ -15,8 +15,12 @@
+ file(REAL_PATH "${CMAKE_CURRENT_LIST_FILE}" _cgal_config_realpath)
+ get_filename_component(CGAL_CONFIG_DIR "${_cgal_config_realpath}" DIRECTORY)
+ 
++set(CGAL_RESTRICTED_INSTALL FALSE)
++include("${CGAL_CONFIG_DIR}/CGALInstallSelection.cmake" OPTIONAL)
++
+ function(cgal_detect_branch_build VAR_NAME)
+-  if(IS_DIRECTORY ${CGAL_CONFIG_DIR}/../../../../Installation/package_info/Installation/)
++  if(NOT CGAL_RESTRICTED_INSTALL AND
++      IS_DIRECTORY ${CGAL_CONFIG_DIR}/../../../../Installation/package_info/Installation/)
+     set(${VAR_NAME} TRUE PARENT_SCOPE)
+   else()
+     set(${VAR_NAME} FALSE PARENT_SCOPE)
+@@ -141,8 +145,17 @@
+ endif()
+ 
+ foreach(comp ${CGAL_FIND_COMPONENTS})
+-  if(NOT comp MATCHES "Core|ImageIO|Qt6")
++  if(NOT comp MATCHES "^(Core|ImageIO|Qt6)$")
+     message(FATAL_ERROR "The requested CGAL component ${comp} does not exist!")
++  endif()
++  if(CGAL_RESTRICTED_INSTALL AND NOT comp IN_LIST CGAL_INSTALLED_COMPONENTS)
++    set(CGAL_${comp}_FOUND FALSE)
++    if(CGAL_FIND_REQUIRED_${comp})
++      set(CGAL_FOUND FALSE)
++      set(CGAL_NOT_FOUND_MESSAGE "Component '${comp}' is not provided by the selected CGAL license whitelist. Supplying its external dependencies does not change its CGAL license.")
++      return()
++    endif()
++    continue()
+   endif()
+   if(comp MATCHES "Core" AND CGAL_DO_NOT_USE_BOOST_MP)
+     message(STATUS "CGAL_Core needs Boost multiprecision support and won't be used.")
+@@ -203,7 +216,8 @@
+ #
+ # Define a specific target for basic viewer
+ #
+-if (NOT TARGET CGAL::CGAL_Basic_viewer_Qt)
++if ((NOT CGAL_RESTRICTED_INSTALL OR "Qt6" IN_LIST CGAL_INSTALLED_COMPONENTS)
++    AND NOT TARGET CGAL::CGAL_Basic_viewer_Qt)
+   add_library(CGAL::CGAL_Basic_viewer_Qt INTERFACE IMPORTED GLOBAL)
+     set_target_properties(CGAL::CGAL_Basic_viewer_Qt PROPERTIES
+       INTERFACE_COMPILE_DEFINITIONS "CGAL_USE_BASIC_VIEWER"
+diff --git a/Installation/cmake/modules/CGAL_Common.cmake b/Installation/cmake/modules/CGAL_Common.cmake
+--- a/Installation/cmake/modules/CGAL_Common.cmake
++++ b/Installation/cmake/modules/CGAL_Common.cmake
+@@ -18,7 +18,7 @@
+   endif()
+ 
+   if ( WIN32 )
+-    find_program(CMAKE_UNAME uname /bin /usr/bin /usr/local/bin )
++    find_program(CMAKE_UNAME uname)
+     if(CMAKE_UNAME)
+       execute_process(COMMAND uname -s
+                       OUTPUT_STRIP_TRAILING_WHITESPACE
+diff --git a/Installation/cmake/modules/CGAL_add_test.cmake b/Installation/cmake/modules/CGAL_add_test.cmake
+--- a/Installation/cmake/modules/CGAL_add_test.cmake
++++ b/Installation/cmake/modules/CGAL_add_test.cmake
+@@ -26,12 +26,17 @@
+   endif()
+ endif()
+ 
++if(ANDROID OR CGAL_RUN_TESTS_THROUGH_SSH)
++  set(CGAL_REMOTE_TEST_DIR_PREFIX "" CACHE PATH "Absolute test directory on the remote device, supplied by the consumer")
++  if(NOT IS_ABSOLUTE "${CGAL_REMOTE_TEST_DIR_PREFIX}")
++    message(FATAL_ERROR "Set CGAL_REMOTE_TEST_DIR_PREFIX explicitly for remote tests.")
++  endif()
++endif()
++
+ if(ANDROID)
+-  set(CGAL_REMOTE_TEST_DIR_PREFIX /data/local/tmp/ CACHE PATH "Path to the directory where the tests will be executed in a remote testsuite.")
+   find_program(adb_executable adb)
+ endif()
+ if(CGAL_RUN_TESTS_THROUGH_SSH)
+-  set(CGAL_REMOTE_TEST_DIR_PREFIX /home/pi/CGAL/ CACHE PATH "Path to the directory where the tests will be executed in a remote testsuite.")
+   find_program(ssh_executable ssh)
+   find_program(scp_executable scp)
+ endif()

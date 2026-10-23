@@ -1,0 +1,373 @@
+{
+  "name": "cpp20-shared-sdk",
+  "version-string": "0.1.0",
+  "description": "Shared C++20 SDK for Windows and Ubuntu; conditional closed-source distribution",
+  "dependencies": [
+    "assimp",
+    "benchmark",
+    {
+      "name": "boost",
+      "$comment": "官方完整 Boost 1.92.0，含 geometry 和 Boost.Python；不启用可选 mpi",
+      "default-features": false
+    },
+    {
+      "name": "ceres",
+      "default-features": false,
+      "features": [
+        "schur"
+      ]
+    },
+    "clipper2",
+    "console-bridge",
+    "eigen3",
+    "flann",
+    "freetype",
+    "glog",
+    "gmp",
+    "gtest",
+    "libffi",
+    "libmodbus",
+    "lpeg",
+    "lua",
+    "lz4",
+    "mpdecimal",
+    "mpfr",
+    "nanoflann",
+    "nlohmann-json",
+    "nu-book-zxing-cpp",
+    "octomap",
+    "ompl",
+    {
+      "name": "opencascade",
+      "default-features": false,
+      "features": [
+        "freetype",
+        "rapidjson",
+        "tbb",
+        "vtk"
+      ]
+    },
+    {
+      "name": "opencv4",
+      "default-features": false,
+      "features": [
+        "calib3d",
+        "eigen",
+        "highgui",
+        "intrinsics",
+        "jpeg",
+        "png",
+        "tbb",
+        "tiff",
+        "webp",
+        "world"
+      ]
+    },
+    "paho-mqttpp3",
+    {
+      "name": "pcl",
+      "default-features": false,
+      "features": [
+        "surface-on-nurbs"
+      ]
+    },
+    "pybind11",
+    {
+      "name": "python3",
+      "$comment": "本地 overlay：3.15.0；自由线程共享 SDK"
+    },
+    "qhull",
+    "qt-advanced-docking-system",
+    {
+      "name": "qtbase",
+      "default-features": false,
+      "features": [
+        "concurrent",
+        "freetype",
+        "gui",
+        "harfbuzz",
+        "jpeg",
+        "network",
+        "opengl",
+        "openssl",
+        "png",
+        "sql-sqlite",
+        "widgets"
+      ]
+    },
+    {
+      "name": "qtbase",
+      "$comment": "两端共用上面的 Qt 功能模块。Windows 使用系统原生字体接口（默认 DirectWrite），Linux 使用 Fontconfig 查找、匹配字体；xcb 提供 X11 窗口后端，并自动包含 xkbcommon-x11。",
+      "default-features": false,
+      "features": [
+        "fontconfig",
+        "xcb"
+      ],
+      "platform": "linux"
+    },
+    "qtimageformats",
+    "qtserialbus",
+    "qtserialport",
+    "qtsvg",
+    {
+      "name": "qttools",
+      "default-features": false,
+      "features": [
+        "linguist"
+      ]
+    },
+    "quill",
+    "rapidjson",
+    "sol2",
+    "tbb",
+    {
+      "name": "tcl",
+      "$comment": "本地 overlay：9.0.3#3"
+    },
+    "tinyxml2",
+    "urdfdom",
+    "urdfdom-headers",
+    {
+      "name": "vtk",
+      "default-features": false,
+      "features": [
+        "opengl",
+        "tbb"
+      ]
+    },
+    "zlib"
+  ],
+  "default-features": [
+    "custom"
+  ],
+  "features": {
+    "custom": {
+      "description": "Complete SDK including missing ports and license/platform overlays",
+      "dependencies": [
+        {
+          "name": "cccorelib",
+          "$comment": "本地 overlay：2024.04.10"
+        },
+        {
+          "name": "cgal",
+          "$comment": "本地 overlay：6.2.1#1"
+        },
+        {
+          "name": "coal",
+          "$comment": "本地 overlay：3.0.4"
+        },
+        {
+          "name": "ifcopenshell",
+          "$comment": "本地 overlay：0.8.6"
+        },
+        {
+          "name": "lexilla",
+          "$comment": "本地 overlay：5.4.6"
+        },
+        {
+          "name": "nodeeditor",
+          "$comment": "本地 overlay：3.0.16"
+        },
+        {
+          "name": "pinocchio",
+          "features": [
+            "urdf"
+          ],
+          "$comment": "本地 overlay：4.1.0"
+        },
+        {
+          "name": "saribbon",
+          "$comment": "本地 overlay：2.8.0"
+        },
+        {
+          "name": "scintilla",
+          "$comment": "本地 overlay：5.6.7"
+        },
+        {
+          "name": "scintillua",
+          "$comment": "本地 overlay：6.7"
+        },
+        {
+          "name": "tk",
+          "$comment": "本地 overlay：9.0.3"
+        }
+      ]
+    }
+  },
+  "$comment": "Boost 完整包固定为 1.92.0，各组件由当前固定 baseline 配套提供；Qt 官方模块随 baseline 和依赖解析。升级 baseline 时须一起评估 Boost 组件版本。",
+  "overrides": [
+    {
+      "name": "boost",
+      "version": "1.92.0"
+    },
+    {
+      "name": "assimp",
+      "version": "6.0.5"
+    },
+    {
+      "name": "benchmark",
+      "version-semver": "1.9.5"
+    },
+    {
+      "name": "ceres",
+      "version": "2.2.0",
+      "port-version": 6
+    },
+    {
+      "name": "clipper2",
+      "version": "2.0.1"
+    },
+    {
+      "name": "console-bridge",
+      "version-semver": "1.0.2"
+    },
+    {
+      "name": "eigen3",
+      "version": "5.0.1"
+    },
+    {
+      "name": "flann",
+      "version-date": "2022-10-28"
+    },
+    {
+      "name": "freetype",
+      "version": "2.14.3"
+    },
+    {
+      "name": "glog",
+      "version": "0.7.1",
+      "port-version": 3
+    },
+    {
+      "name": "gmp",
+      "version": "6.3.0",
+      "port-version": 5
+    },
+    {
+      "name": "gtest",
+      "version-semver": "1.18.0"
+    },
+    {
+      "name": "libffi",
+      "version": "3.8.0"
+    },
+    {
+      "name": "libmodbus",
+      "version": "3.2.0"
+    },
+    {
+      "name": "lpeg",
+      "version": "1.1.0",
+      "port-version": 1
+    },
+    {
+      "name": "lua",
+      "version": "5.5.1"
+    },
+    {
+      "name": "lz4",
+      "version": "1.10.0"
+    },
+    {
+      "name": "mpdecimal",
+      "version": "4.0.1"
+    },
+    {
+      "name": "mpfr",
+      "version": "4.2.2",
+      "port-version": 2
+    },
+    {
+      "name": "nanoflann",
+      "version": "2.0.1"
+    },
+    {
+      "name": "nlohmann-json",
+      "version-semver": "3.12.0",
+      "port-version": 2
+    },
+    {
+      "name": "nu-book-zxing-cpp",
+      "version": "3.1.1"
+    },
+    {
+      "name": "octomap",
+      "version": "1.10.1"
+    },
+    {
+      "name": "ompl",
+      "version": "2.0.2"
+    },
+    {
+      "name": "opencascade",
+      "version": "8.0.1"
+    },
+    {
+      "name": "opencv4",
+      "version": "4.14.0"
+    },
+    {
+      "name": "paho-mqttpp3",
+      "version": "1.6.0"
+    },
+    {
+      "name": "pcl",
+      "version": "1.15.1",
+      "port-version": 1
+    },
+    {
+      "name": "pybind11",
+      "version": "3.1.0"
+    },
+    {
+      "name": "qhull",
+      "version": "8.0.2",
+      "port-version": 6
+    },
+    {
+      "name": "qt-advanced-docking-system",
+      "version": "4.5.0"
+    },
+    {
+      "name": "quill",
+      "version": "13.1.0"
+    },
+    {
+      "name": "rapidjson",
+      "version-date": "2025-02-26",
+      "port-version": 1
+    },
+    {
+      "name": "sol2",
+      "version": "3.5.0",
+      "port-version": 1
+    },
+    {
+      "name": "tbb",
+      "version": "2023.1.0"
+    },
+    {
+      "name": "tinyxml2",
+      "version-semver": "11.0.0"
+    },
+    {
+      "name": "urdfdom",
+      "version": "3.1.1",
+      "port-version": 1
+    },
+    {
+      "name": "urdfdom-headers",
+      "version": "1.1.1"
+    },
+    {
+      "name": "vtk",
+      "version-semver": "9.3.0-pv5.12.1",
+      "port-version": 18
+    },
+    {
+      "name": "zlib",
+      "version": "1.3.2",
+      "port-version": 2
+    }
+  ]
+}

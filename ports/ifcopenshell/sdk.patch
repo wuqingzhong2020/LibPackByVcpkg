@@ -1,0 +1,311 @@
+diff --git a/cmake/CMakeLists.txt b/cmake/CMakeLists.txt
+index 9a3807d..59ad1c9 100644
+--- a/cmake/CMakeLists.txt
++++ b/cmake/CMakeLists.txt
+@@ -37,6 +37,7 @@ string(STRIP "${RELEASE_VERSION_}" RELEASE_VERSION)
+ message(STATUS "Detected version '${RELEASE_VERSION}'")
+ 
+ add_definitions(-D_DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR)
++# Eigen alignment follows the common vcpkg compiler flags.
+ 
+ if(POLICY CMP0141) # 3.25+
+     # Has to be set before `project` to take effect.
+@@ -183,16 +184,12 @@ set(IFCOPENSHELL_EXPORT_TARGETS "${PROJECT_NAME}Targets")
+ # On Windows Release and Debug binaries are not compatible.
+ # So we add a postfix to avoid issues and allow release and debug installations to coexist.
+ if(WIN32)
+-    set(CMAKE_DEBUG_POSTFIX "_d")
++    set(CMAKE_DEBUG_POSTFIX "_d" CACHE STRING "Postfix for Debug library names")
+ endif()
+ 
+ if(BUILD_SHARED_LIBS)
+     add_definitions(-DIFC_SHARED_BUILD)
+     if(MSVC)
+-        message(
+-            WARNING
+-            "Building DLLs against the static VC run-time. This is not recommended if the DLLs are to be redistributed."
+-        )
+         # C4521: 'identifier' : class 'type' needs to have dll-interface to be used by clients of class 'type2'
+         # There will be couple hundreds of these so suppress them away, https://msdn.microsoft.com/en-us/library/esew7y1w.aspx
+         add_definitions(-wd4251)
+@@ -216,7 +213,7 @@ foreach(option_flag IN LISTS option_flags)
+ endforeach()
+ 
+ if(BUILD_IFCGEOM AND WITH_OPENCASCADE)
+-    find_package(OpenCASCADE REQUIRED)
++    find_package(OpenCASCADE 8.0.1 EXACT CONFIG REQUIRED)
+     add_definitions(-DIFOPSH_WITH_OPENCASCADE)
+     set(SWIG_DEFINES ${SWIG_DEFINES} -DIFOPSH_WITH_OPENCASCADE)
+     list(APPEND GEOMETRY_KERNELS opencascade)
+@@ -348,7 +345,7 @@ if(WITH_CGAL)
+     list(APPEND GEOMETRY_KERNELS cgal)
+ endif()
+ 
+-find_package(Boost REQUIRED COMPONENTS ${BOOST_COMPONENTS})
++find_package(Boost CONFIG REQUIRED COMPONENTS ${BOOST_COMPONENTS})
+ message(STATUS "Boost include files found in ${Boost_INCLUDE_DIRS}")
+ message(STATUS "Boost libraries found in ${Boost_LIBRARY_DIRS}")
+ 
+@@ -670,7 +667,7 @@ endif(ADD_COMMIT_SHA)
+ # stale hardcoded fallback. See #8164.
+ target_compile_definitions(IfcParse PRIVATE IFCOPENSHELL_VERSION_STRING=${RELEASE_VERSION})
+ 
+-if(MSVC)
++if(MSVC AND WITH_CGAL)
+     # @todo still needs to be understood better, but the cgal and cgal-simple kernel cause multiply defined boost lambda placeholders _1 ... _3
+     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /FORCE:MULTIPLE")
+     set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} /FORCE:MULTIPLE")
+@@ -760,4 +757,37 @@ set(CPACK_DEBIAN_ARCHITECTURE "${CMAKE_SYSTEM_PROCESSOR}")
+ 
+ include(CPack)
+ 
++# Publish the ABI and dependencies needed by installed C++ consumers.
++foreach(sdk_target IfcParse IfcGeom geometry_kernel_opencascade geometry_serializer Serializers)
++    if(TARGET ${sdk_target})
++        target_compile_features(${sdk_target} PUBLIC cxx_std_20)
++        target_compile_definitions(${sdk_target} PUBLIC
++            $<$<BOOL:${BUILD_SHARED_LIBS}>:IFC_SHARED_BUILD>)
++        # Do not export a private Eigen alignment override.
++        target_include_directories(${sdk_target} PUBLIC
++            $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/../src>
++            $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
++        set_target_properties(${sdk_target} PROPERTIES
++            VERSION "${PROJECT_VERSION}"
++            SOVERSION "${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}")
++        if(MSVC AND BUILD_SHARED_LIBS)
++            install(FILES $<TARGET_PDB_FILE:${sdk_target}>
++                DESTINATION ${CMAKE_INSTALL_BINDIR} OPTIONAL)
++        endif()
++    endif()
++endforeach()
++if(TARGET IfcGeom AND WITH_OPENCASCADE)
++    target_compile_definitions(IfcGeom PUBLIC IFOPSH_WITH_OPENCASCADE)
++endif()
++if(TARGET Serializers)
++    target_link_libraries(Serializers PUBLIC IfcGeom geometry_serializer ${kernel_libraries})
++endif()
++if(TARGET IfcConvert)
++    set_target_properties(IfcConvert PROPERTIES DEBUG_POSTFIX "${CMAKE_DEBUG_POSTFIX}")
++    if(MSVC)
++        install(FILES $<TARGET_PDB_FILE:IfcConvert>
++            DESTINATION ${CMAKE_INSTALL_BINDIR} OPTIONAL)
++    endif()
++endif()
++
+ include(package_export.cmake)
+diff --git a/cmake/IfcOpenShellConfig.cmake.in b/cmake/IfcOpenShellConfig.cmake.in
+index 741e4fa..7cfb355 100644
+--- a/cmake/IfcOpenShellConfig.cmake.in
++++ b/cmake/IfcOpenShellConfig.cmake.in
+@@ -27,16 +27,10 @@ endif()
+ if(NOT "${IFCOPENSHELL_BOOST_USE_MULTITHREADED}" STREQUAL "")
+     set(Boost_USE_MULTITHREADED ${IFCOPENSHELL_BOOST_USE_MULTITHREADED})
+ endif()
+-set(Boost_COMPONENTS
+-    system
+-    program_options
+-    regex
+-    thread
+-    date_time
+-    iostreams
+-)
+-find_dependency(Boost CONFIG COMPONENTS ${Boost_COMPONENTS})
+-find_dependency(Eigen3 CONFIG)
++set(Boost_COMPONENTS @BOOST_COMPONENTS@)
++find_dependency(Boost CONFIG COMPONENTS ${Boost_COMPONENTS})
++find_dependency(Eigen3 CONFIG)
++find_dependency(Threads)
+ 
+ if(IFCOPENSHELL_WITH_ROCKSDB)
+     find_dependency(zstd CONFIG)
+@@ -85,7 +79,12 @@ if(IFCOPENSHELL_USD_SUPPORT)
+ endif()
+ 
+ if(IFCOPENSHELL_WITH_OPENCASCADE)
+-    find_dependency(OpenCASCADE CONFIG)
++    # OCCT 8 guards the entire package, including component imports. A prior
++    # FoundationClasses-only lookup must not hide IFC's remaining dependencies.
++    unset(OpenCASCADE_ALREADY_INCLUDED)
++    find_dependency(OpenCASCADE 8.0.1 EXACT CONFIG COMPONENTS
++        FoundationClasses ModelingData ModelingAlgorithms Visualization
++        ApplicationFramework DataExchange)
+     if(OpenCASCADE_VERSION VERSION_LESS "7.7.0")
+         # cmake configs < 7.7.0 were not adding include directories to targets automatically.
+         set_target_properties(TKernel PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "${OpenCASCADE_INCLUDE_DIR}")
+diff --git a/src/ifcgeom/CMakeLists.txt b/src/ifcgeom/CMakeLists.txt
+index 31bb2e7..803ee41 100644
+--- a/src/ifcgeom/CMakeLists.txt
++++ b/src/ifcgeom/CMakeLists.txt
+@@ -23,20 +23,18 @@ set_target_properties(
+         PUBLIC_HEADER "${SCHEMA_AGNOSTIC_H_FILES}"
+ )
+ 
+-if(UNIX)
+-    find_package(Threads)
+-endif()
++find_package(Threads REQUIRED)
+ 
+-find_package(Eigen3 REQUIRED)
++find_package(Eigen3 CONFIG REQUIRED)
+ 
+-target_link_libraries(IfcGeom ${mapping_libraries} ${CMAKE_THREAD_LIBS_INIT} "Eigen3::Eigen" ${CGAL_LIBRARIES})
++target_link_libraries(IfcGeom PRIVATE ${mapping_libraries} PUBLIC Threads::Threads Eigen3::Eigen ${CGAL_LIBRARIES})
+ 
+ if(WITH_OPENCASCADE)
+-    target_link_libraries(IfcGeom TKernel)
++    target_link_libraries(IfcGeom PUBLIC TKernel)
+ endif()
+ 
+ if(NOT WASM_BUILD)
+-    target_link_libraries(IfcGeom IfcParse)
++    target_link_libraries(IfcGeom PUBLIC IfcParse)
+ endif()
+ 
+ install(
+diff --git a/src/ifcgeom/Serialization/CMakeLists.txt b/src/ifcgeom/Serialization/CMakeLists.txt
+index 0c49136..505292b 100644
+--- a/src/ifcgeom/Serialization/CMakeLists.txt
++++ b/src/ifcgeom/Serialization/CMakeLists.txt
+@@ -7,12 +7,12 @@ set_target_properties(
+     geometry_serializer
+     PROPERTIES COMPILE_FLAGS "-DIFC_GEOMSERIALIZATION_EXPORTS" PUBLIC_HEADER "${IFCGEOM_SERIALIZATION_H_FILE}"
+ )
+-target_link_libraries(geometry_serializer ${geometry_serializer_libraries} IfcParse)
++target_link_libraries(geometry_serializer PRIVATE ${geometry_serializer_libraries} PUBLIC IfcParse ${OpenCASCADE_LIBRARIES})
+ set(IFCOPENSHELL_LIBRARIES ${IFCOPENSHELL_LIBRARIES} "geometry_serializer" ${geometry_serializer_libraries})
+ set(IFCOPENSHELL_LIBRARIES ${IFCOPENSHELL_LIBRARIES} PARENT_SCOPE)
+ 
+ install(
+-    TARGETS geometry_serializer ${geometry_serializer_libraries}
++    TARGETS geometry_serializer
+     EXPORT ${IFCOPENSHELL_EXPORT_TARGETS}
+     PUBLIC_HEADER DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/ifcgeom/Serialization"
+ )
+diff --git a/src/ifcgeom/hybrid_kernel.h b/src/ifcgeom/hybrid_kernel.h
+index d19b587..09a1d3d 100644
+--- a/src/ifcgeom/hybrid_kernel.h
++++ b/src/ifcgeom/hybrid_kernel.h
+@@ -24,8 +24,10 @@
+ 
+ #ifdef IFOPSH_WITH_OPENCASCADE
+ #include "../ifcgeom/kernels/opencascade/OpenCascadeKernel.h"
++#ifdef IFOPSH_WITH_CGAL
+ #undef Handle
+ #endif
++#endif
+ 
+ #ifdef IFOPSH_WITH_CGAL
+ #include "../ifcgeom/kernels/cgal/CgalKernel.h"
+diff --git a/src/ifcgeom/kernels/CMakeLists.txt b/src/ifcgeom/kernels/CMakeLists.txt
+index 6775a8f..81bb54b 100644
+--- a/src/ifcgeom/kernels/CMakeLists.txt
++++ b/src/ifcgeom/kernels/CMakeLists.txt
+@@ -11,7 +11,7 @@ foreach(kernel ${GEOMETRY_KERNELS})
+     add_library(${KERNEL_TARGET} ${IFCGEOM_FILES})
+     set_target_properties(
+         ${KERNEL_TARGET}
+-        PROPERTIES COMPILE_FLAGS "-DIFC_GEOM_EXPORTS" PUBLIC_HEADER "${IFCGEOM_H_FILES}"
++        PROPERTIES COMPILE_FLAGS "-DIFC_GEOMLIBRARY_EXPORTS" PUBLIC_HEADER "${IFCGEOM_H_FILES}"
+     )
+     list(APPEND kernel_libraries ${KERNEL_TARGET})
+     target_link_libraries(${KERNEL_TARGET} ${${KERNEL_UPPER}_LIBRARIES} IfcGeom Eigen3::Eigen)
+@@ -30,7 +30,7 @@ foreach(kernel ${GEOMETRY_KERNELS})
+         add_library(${KERNEL_TARGET_SIMPLE} ${IFCGEOM_FILES})
+         set_target_properties(
+             ${KERNEL_TARGET_SIMPLE}
+-            PROPERTIES COMPILE_FLAGS "-DIFC_GEOM_EXPORTS -DIFOPSH_SIMPLE_KERNEL -DCGAL_HAS_THREADS"
++            PROPERTIES COMPILE_FLAGS "-DIFC_GEOMLIBRARY_EXPORTS -DIFOPSH_SIMPLE_KERNEL -DCGAL_HAS_THREADS"
+         )
+         list(APPEND kernel_libraries ${KERNEL_TARGET_SIMPLE})
+         target_link_libraries(${KERNEL_TARGET_SIMPLE} ${${KERNEL_UPPER}_LIBRARIES} Eigen3::Eigen)
+diff --git a/src/ifcgeom/kernels/ifc_geomlibrary_api.h b/src/ifcgeom/kernels/ifc_geomlibrary_api.h
+index 91aeda7..61ba3c3 100644
+--- a/src/ifcgeom/kernels/ifc_geomlibrary_api.h
++++ b/src/ifcgeom/kernels/ifc_geomlibrary_api.h
+@@ -22,7 +22,7 @@
+ 
+ #ifdef IFC_SHARED_BUILD
+ #ifdef _WIN32
+-#ifdef IFC_GEOM_EXPORTS
++#ifdef IFC_GEOMLIBRARY_EXPORTS
+ #define IFC_GEOMLIBRARY_API __declspec(dllexport)
+ #else
+ #define IFC_GEOMLIBRARY_API __declspec(dllimport)
+diff --git a/src/ifcgeom/mapping/CMakeLists.txt b/src/ifcgeom/mapping/CMakeLists.txt
+index 6369b98..19eb98b 100644
+--- a/src/ifcgeom/mapping/CMakeLists.txt
++++ b/src/ifcgeom/mapping/CMakeLists.txt
+@@ -23,7 +23,6 @@ foreach(schema ${SCHEMA_VERSIONS})
+     target_link_libraries(geometry_mapping_ifc${schema} IfcParse Eigen3::Eigen)
+ 
+     list(APPEND mapping_libraries geometry_mapping_ifc${schema})
+-    install(TARGETS geometry_mapping_ifc${schema} EXPORT ${IFCOPENSHELL_EXPORT_TARGETS})
+ endforeach()
+ 
+ set(mapping_libraries ${mapping_libraries} PARENT_SCOPE)
+diff --git a/src/ifcparse/IfcParse.h b/src/ifcparse/IfcParse.h
+index 547220b..0d8ca20 100644
+--- a/src/ifcparse/IfcParse.h
++++ b/src/ifcparse/IfcParse.h
+@@ -44,7 +44,7 @@
+ #include <vector>
+ 
+ 
+-extern const char *IFCOPENSHELL_VERSION;
++extern IFC_PARSE_API const char *IFCOPENSHELL_VERSION;
+ 
+ namespace IfcParse {
+ 
+diff --git a/src/ifcparse/buildinfo.cpp b/src/ifcparse/buildinfo.cpp
+index 26375d7..6757e77 100644
+--- a/src/ifcparse/buildinfo.cpp
++++ b/src/ifcparse/buildinfo.cpp
+@@ -25,6 +25,7 @@
+  ********************************************************************************/
+ 
+ #include <string>
++#include "IfcParse.h"
+ #include "macros.h"
+ 
+ 
+diff --git a/src/serializers/StepSerializer.h b/src/serializers/StepSerializer.h
+index 85dabf4..8f7ec51 100644
+--- a/src/serializers/StepSerializer.h
++++ b/src/serializers/StepSerializer.h
+@@ -23,6 +23,7 @@
+ #define STEPSERIALIZER_H
+ 
+ #include <STEPControl_Writer.hxx>
++#include <StepData_StepModel.hxx>
+ #include <Interface_Static.hxx>
+ 
+ #include "../ifcgeom/Iterator.h"
+@@ -52,6 +53,9 @@ public:
+ 		std::cout.rdbuf(sb);
+ 	}
+ 	void setUnitNameAndMagnitude(const std::string& /*name*/, float magnitude) {
++		// OCCT expresses its input length unit in millimetres. IfcGeom uses
++		// metres unless ConvertBackUnits requests the original IFC unit.
++		writer.Model()->SetLocalLengthUnit(static_cast<double>(magnitude) * 1000.0);
+ 		const char* symbol = getSymbolForUnitMagnitude(magnitude);
+ 		if (symbol) {
+ 			// Interface_Static::SetCVal("xstep.cascade.unit", symbol);
+diff --git a/src/serializers/schema_dependent/CMakeLists.txt b/src/serializers/schema_dependent/CMakeLists.txt
+index a9c1107..747f15a 100644
+--- a/src/serializers/schema_dependent/CMakeLists.txt
++++ b/src/serializers/schema_dependent/CMakeLists.txt
+@@ -7,13 +7,12 @@ foreach(schema ${SCHEMA_VERSIONS})
+     set(SERIALIZER_SCHEMA_LIBRARIES ${SERIALIZER_SCHEMA_LIBRARIES} Serializers_ifc${schema})
+     set_target_properties(
+         Serializers_ifc${schema}
+-        PROPERTIES COMPILE_FLAGS "-DIFC_GEOM_EXPORTS -DIfcSchema=Ifc${schema}"
++        PROPERTIES COMPILE_FLAGS "-DSERIALIZERS_EXPORTS -DIfcSchema=Ifc${schema}"
+     )
+     target_link_libraries(Serializers_ifc${schema} IfcGeom ${HDF5_LIBRARIES} ${GLTF_LIBRARIES})
+     if(NOT WASM_BUILD)
+         target_link_libraries(Serializers_ifc${schema} ${OpenCASCADE_LIBRARIES})
+     endif()
+-    install(TARGETS Serializers_ifc${schema} EXPORT ${IFCOPENSHELL_EXPORT_TARGETS})
+ endforeach()
+ 
+ set(SERIALIZER_SCHEMA_LIBRARIES ${SERIALIZER_SCHEMA_LIBRARIES} PARENT_SCOPE)

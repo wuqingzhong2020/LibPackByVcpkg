@@ -1,0 +1,3 @@
+Original notices from eclipse-paho.mqtt.c-v1.3.16.tar.gz, release v1.3.16.
+Archive SHA512: a69cb4fdd9c56d7ed7b2275610b680bd9830d9e5b5d5151edf30db052da234b0ccce93e6b9e687be3f515699b79721d9282b5a77bf7a00e1719e5264e0ad9a4a
+The selected license branch is EDL-1.0. Native vcpkg copyright collection omits the separate EDL text; these files preserve it and the dual-license statement.

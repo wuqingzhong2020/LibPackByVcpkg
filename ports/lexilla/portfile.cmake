@@ -1,0 +1,11 @@
+vcpkg_check_linkage(ONLY_STATIC_LIBRARY)
+vcpkg_download_distfile(ARCHIVE URLS "https://www.scintilla.org/lexilla546.zip" FILENAME "lexilla546.zip"
+    SHA512 7290de2acbe9e52cac31aa3bf89dae66faa2040b45e715a2e18d2dd5804b2486dac8ae1cec68d8dc9215fc953628d492dbf57e61751011d17c3d70899a47dec0)
+vcpkg_extract_source_archive(SOURCE_PATH ARCHIVE "${ARCHIVE}")
+file(COPY "${CMAKE_CURRENT_LIST_DIR}/CMakeLists.txt" "${CMAKE_CURRENT_LIST_DIR}/LexillaConfig.cmake.in" DESTINATION "${SOURCE_PATH}")
+vcpkg_cmake_configure(SOURCE_PATH "${SOURCE_PATH}")
+vcpkg_cmake_install()
+vcpkg_cmake_config_fixup(PACKAGE_NAME Lexilla CONFIG_PATH lib/cmake/Lexilla)
+vcpkg_copy_pdbs()
+file(REMOVE_RECURSE "${CURRENT_PACKAGES_DIR}/debug/include" "${CURRENT_PACKAGES_DIR}/debug/share")
+vcpkg_install_copyright(FILE_LIST "${SOURCE_PATH}/License.txt")

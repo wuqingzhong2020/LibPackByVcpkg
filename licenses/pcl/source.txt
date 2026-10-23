@@ -1,0 +1,5 @@
+OpenNURBS notice supplied with PCL 1.15.1, surface-on-nurbs feature.
+Source: https://github.com/PointCloudLibrary/pcl/blob/pcl-1.15.1/surface/src/3rdparty/opennurbs/readme.txt
+Archive: PointCloudLibrary-pcl-pcl-1.15.1.tar.gz
+SHA512: ca9e742bc24b38f31c42c9ea08e19054e18d045f487269b64a7b831dada89936445d90a5b46870d8c24c2d25b33a59df2d904fe7e51bc0b231317cdb319951e9
+The native port collects the main PCL LICENSE.txt; this supplements that notice. The selected PCL build uses system ZLIB (WITH_SYSTEM_ZLIB defaults to TRUE), rather than building the old zlib mentioned in the historical OpenNURBS readme.

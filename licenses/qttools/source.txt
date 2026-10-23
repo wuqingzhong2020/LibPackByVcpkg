@@ -1,0 +1,8 @@
+Qt qttools 6.11.2 source attribution catalog
+Source: https://download.qt.io/archive/qt/6.11/6.11.2/submodules/qttools-everywhere-src-6.11.2.tar.xz
+SHA512: 2c420cbafbcfa300168e1c46d0e8a71e15671b065e6a2190eebcb4f1456cc95175c0e8ce0831ab9e4cca7263ba18c0320f4a1c677c4aa2f796c19afe8a76f482
+
+Original src/**/qt_attribution.json files, their referenced LicenseFile texts, and root LICENSES files are preserved.
+This is a source notice superset, not a claim that every listed component was compiled or linked.
+Actual vcpkg features and external system libraries determine the application runtime closure.
+Development-tool licenses remain separate from runtime license selection.

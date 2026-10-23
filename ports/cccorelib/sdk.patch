@@ -1,0 +1,393 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -18,7 +18,7 @@
+ 	OFF
+ )
+ option( CCCORELIB_USE_TBB
+-	"Compile CCCoreLib with Intel Threading Building Blocks lib (enables some parallel processing )"
++	"Compile CCCoreLib with oneTBB 2021 or newer (enables some parallel processing)"
+ 	OFF
+ )
+ option( CCCORELIB_USE_QT_CONCURRENT
+@@ -54,10 +54,11 @@
+ 	)
+ endif()
+ 
+-set_target_properties( CCCoreLib
+-	PROPERTIES
+-		DEBUG_POSTFIX d
+-)
++# Honor CMAKE_DEBUG_POSTFIX, including an explicitly empty suffix.
++# Keep the upstream default when the caller has not selected a suffix.
++if ( NOT DEFINED CMAKE_DEBUG_POSTFIX )
++	set_target_properties( CCCoreLib PROPERTIES DEBUG_POSTFIX d )
++endif()
+ 
+ add_library( CCCoreLib::CCCoreLib ALIAS CCCoreLib )
+ 
+@@ -135,8 +136,17 @@
+ option(NANOFLANN_BUILD_BENCHMARKS "" OFF)
+ option(NANOFLANN_BUILD_EXAMPLES "" OFF)
+ option(NANOFLANN_BUILD_TESTS "" OFF)
++# nanoflann v1.4.3 declares CMake 3.1 policies; CMake 4 requires 3.5.
++# Preserve a higher policy floor explicitly supplied by the caller.
++if ( CMAKE_VERSION VERSION_GREATER_EQUAL "4.0"
++     AND ( NOT DEFINED CMAKE_POLICY_VERSION_MINIMUM
++           OR CMAKE_POLICY_VERSION_MINIMUM VERSION_LESS "3.5" ) )
++    set( CMAKE_POLICY_VERSION_MINIMUM 3.5 )
++endif()
+ add_subdirectory( extern/nanoflann EXCLUDE_FROM_ALL )
+-target_link_libraries( CCCoreLib PUBLIC nanoflann::nanoflann )
++# Only Kriging.cpp uses this header-only dependency. Do not export a dependency
++# on a nanoflann target that is not part of the installed CCCoreLib package.
++target_link_libraries( CCCoreLib PRIVATE $<BUILD_INTERFACE:nanoflann::nanoflann> )
+ 
+ # Windows-specific flags
+ if ( WIN32 )
+@@ -171,26 +181,13 @@
+ # TBB (optional)
+ # Must come before CGAL so it can use TBB properly
+ if ( CCCORELIB_USE_TBB )
+-	find_package( TBB COMPONENTS tbb CONFIG )
+-
+-	if ( TBB_FOUND )
+-		if ( ${TBB_VERSION} VERSION_GREATER 2021.0.0 )
+-			target_link_libraries( CCCoreLib
+-				PUBLIC
+-				TBB::tbb
+-			)
+-		else()
+-			target_link_libraries( CCCoreLib
+-				PUBLIC
+-				${TBB_IMPORTED_TARGETS}
+-			)
+-		endif()
+-		target_compile_definitions( CCCoreLib
+-			PUBLIC
+-				CC_CORE_LIB_USES_TBB
+-				TBB_VERSION="${TBB_VERSION}"
+-		)
+-	endif()
++	find_package( TBB 2021 CONFIG REQUIRED COMPONENTS tbb )
++	target_link_libraries( CCCoreLib PUBLIC TBB::tbb )
++	target_compile_definitions( CCCoreLib
++		PUBLIC
++			CC_CORE_LIB_USES_TBB=1
++			TBB_VERSION="${TBB_VERSION}"
++	)
+ endif()
+ 
+ # CGAL (optional)
+@@ -261,6 +258,7 @@
+ 		CCCoreLib
+ 	EXPORT
+ 		CCCoreLib-targets
++	RUNTIME DESTINATION bin
+ 	LIBRARY DESTINATION lib
+ 	ARCHIVE DESTINATION lib
+ 	INCLUDES DESTINATION include
+@@ -277,6 +275,15 @@
+ 		lib/cmake/CCCoreLib
+ )
+ 
++# Keep debugger symbols alongside the Windows DLL in both build modes.
++if ( MSVC AND CCCORELIB_SHARED )
++    install( FILES "$<TARGET_PDB_FILE:CCCoreLib>"
++        DESTINATION bin CONFIGURATIONS Debug Release OPTIONAL )
++endif()
++
++install( FILES LICENSE.txt LICENSE-MIT.txt DESTINATION licenses )
++install( FILES extern/nanoflann/COPYING DESTINATION licenses/nanoflann )
++
+ # CMake Package Files
+ include( CMakePackageConfigHelpers )
+ 
+diff --git a/cmake/CCCoreLibConfig.cmake.in b/cmake/CCCoreLibConfig.cmake.in
+--- a/cmake/CCCoreLibConfig.cmake.in
++++ b/cmake/CCCoreLibConfig.cmake.in
+@@ -11,11 +11,7 @@
+   find_dependency( CGAL )
+ endif()
+ if( @CCCORELIB_USE_TBB@ )
+-  if( ${CMAKE_VERSION} VERSION_LESS "3.10.0" )
+-    find_package (TBB COMPONENTS tbb CONFIG )
+-  else()
+-    find_dependency( TBB COMPONENTS tbb CONFIG )
+-  endif()
++  find_dependency( TBB 2021 CONFIG COMPONENTS tbb )
+ endif()
+ if( @CCCORELIB_USE_QT_CONCURRENT@ )
+   if( ${CMAKE_VERSION} VERSION_LESS "3.10.0" )
+diff --git a/include/DgmOctree.h b/include/DgmOctree.h
+--- a/include/DgmOctree.h
++++ b/include/DgmOctree.h
+@@ -1030,7 +1030,7 @@
+ 			\param maxNumberOfPointsPerCell maximum number of points inside a cell (indicative)
+ 			\param multiThread whether to use parallel processing or not
+ 			\param progressCb the client application can get some notification of the process progress through this callback mechanism (see GenericProgressCallback)
+-			\param maxThreadCount the maximum number of threads to use (0 = all). Ignored if 'multiThread' is false or with tbb.
++			\param maxThreadCount the maximum number of threads to use (0 = all). Ignored if 'multiThread' is false.
+ 			\param functionTitle function title
+ 			\return the number of processed cells (or 0 is something went wrong)
+ 		**/
+@@ -1056,7 +1056,7 @@
+ 			\param multiThread whether to use parallel processing or not
+ 			\param progressCb the client application can get some notification of the process progress through this callback mechanism (see GenericProgressCallback)
+ 			\param functionTitle function title
+-			\param maxThreadCount the maximum number of threads to use (0 = all). Ignored if 'multiThread' is false or with tbb. 
++			\param maxThreadCount the maximum number of threads to use (0 = all). Ignored if 'multiThread' is false.
+ 			\return the number of processed cells (or 0 is something went wrong)
+ 		**/
+ 		unsigned executeFunctionForAllCellsAtLevel(	unsigned char level,
+@@ -1226,7 +1226,7 @@
+ 		struct MultiThreadingWrapper
+ 		{
+ 			octreeCellFunc cellFunc = nullptr;
+-			bool cellFuncSuccess = true;
++			std::atomic<bool> cellFuncSuccess{true};
+ 			DgmOctree* octree = nullptr;
+ 			GenericProgressCallback* progressCb = nullptr;
+ 			NormalizedProgress* normProgressCb = nullptr;
+diff --git a/include/ParallelSort.h b/include/ParallelSort.h
+--- a/include/ParallelSort.h
++++ b/include/ParallelSort.h
+@@ -8,18 +8,18 @@
+ #pragma message "Replacing preprocessor symbol 'ParallelSort' with the one defined in Parallel.h"
+ #endif
+ 
+-#if defined(_MSC_VER) && (_MSC_VER >= 1800)
++#if defined(CC_CORE_LIB_USES_TBB)
++
++   #include <tbb/parallel_sort.h>
++
++   #define ParallelSort tbb::parallel_sort
++
++#elif defined(_MSC_VER) && (_MSC_VER >= 1800)
+ 
+    //Parallel Patterns Library (for parallel sort)
+    #include <ppl.h>
+ 
+    #define ParallelSort Concurrency::parallel_sort
+-
+-#elif CC_CORE_LIB_USES_TBB
+-
+-   #include <tbb/parallel_sort.h>
+-
+-   #define ParallelSort tbb::parallel_sort
+ 
+ #else
+ 
+diff --git a/src/DgmOctree.cpp b/src/DgmOctree.cpp
+--- a/src/DgmOctree.cpp
++++ b/src/DgmOctree.cpp
+@@ -20,7 +20,9 @@
+ //#define ADAPTATIVE_BINARY_SEARCH
+ 
+ //Qt
++#ifdef CC_CORE_LIB_USES_QT_CONCURRENT
+ #include <QCoreApplication>
++#endif
+ 
+ //#ifndef CC_DEBUG
+ //enables multi-threading handling (Release only)
+@@ -33,7 +35,9 @@
+ #elif defined(CC_CORE_LIB_USES_TBB)
+ #define ENABLE_MT_OCTREE
+ #include <algorithm>
++#include <tbb/blocked_range.h>
+ #include <tbb/parallel_for.h>
++#include <tbb/task_arena.h>
+ #endif
+ //#endif // #ifndef CC_DEBUG
+ 
+@@ -210,12 +214,17 @@
+ 			cell.points->addPointIndex(pointsAndCodes[i].theIndex);
+ 		}
+ 
+-		cellFuncSuccess &= (*cellFunc)(cell, userParams, normProgressCb);
+-
++		if (!(*cellFunc)(cell, userParams, normProgressCb))
++		{
++			cellFuncSuccess = false;
++		}
++
++#ifdef CC_CORE_LIB_USES_QT_CONCURRENT
+ 		if (normProgressCb)
+ 		{
+ 			QCoreApplication::processEvents(QEventLoop::EventLoopExec); // to allow the GUI to refresh itself
+ 		}
++#endif
+ 	}
+ 	else
+ 	{
+@@ -3229,7 +3238,7 @@
+ 			progressCb->update(0);
+ 			m_MT_wrapper.normProgressCb = new NormalizedProgress(progressCb, m_theAssociatedCloud->size());
+ 			progressCb->start();
+-#ifndef __APPLE__
++#if defined(CC_CORE_LIB_USES_QT_CONCURRENT) && !defined(__APPLE__)
+ 			QCoreApplication::processEvents(QEventLoop::EventLoopExec); // to allow the GUI to refresh itself
+ #endif
+ 		}
+@@ -3245,15 +3254,19 @@
+ 		QThreadPool::globalInstance()->setMaxThreadCount(maxThreadCount);
+ 		QtConcurrent::blockingMap(cells, [this](const octreeCellDesc& desc) { m_MT_wrapper.launchOctreeCellFunc(desc); });
+ #elif defined(CC_CORE_LIB_USES_TBB)
+-		tbb::task_scheduler_init init(maxThreadCount != 0 ? maxThreadCount : tbb::task_scheduler_init::automatic);
+-		tbb::parallel_for(tbb::blocked_range<int>(0, cells.size()),
+-			[&](tbb::blocked_range<int> r)
+-			{
+-				for (auto i = r.begin(); i < r.end(); ++i)
+-				{
+-					m_MT_wrapper.launchOctreeCellFunc(cells[i]);
+-				}
+-			});
++		// Limit this operation without changing other oneTBB users in the process.
++		tbb::task_arena arena(maxThreadCount != 0 ? maxThreadCount : tbb::task_arena::automatic);
++		arena.execute([&]
++		{
++			tbb::parallel_for(tbb::blocked_range<std::size_t>(0, cells.size()),
++				[&](const tbb::blocked_range<std::size_t>& r)
++				{
++					for (auto i = r.begin(); i < r.end(); ++i)
++					{
++						m_MT_wrapper.launchOctreeCellFunc(cells[i]);
++					}
++				});
++		});
+ #endif
+ #ifdef COMPUTE_NN_SEARCH_STATISTICS
+ 		FILE* fp = fopen("octree_log.txt", "at");
+@@ -3428,7 +3441,7 @@
+ 			if (progressCb)
+ 			{
+ 				progressCb->update((100.0f * cell.index) / m_numberOfProjectedPoints);
+-#ifndef __APPLE__
++#if defined(CC_CORE_LIB_USES_QT_CONCURRENT) && !defined(__APPLE__)
+ 				QCoreApplication::processEvents(QEventLoop::EventLoopExec); // to allow the GUI to refresh itself
+ #endif
+ 				if (progressCb->isCancelRequested())
+@@ -3850,15 +3863,18 @@
+ 		QtConcurrent::blockingMap(cells, [this](const octreeCellDesc& desc) { m_MT_wrapper.launchOctreeCellFunc(desc); } );
+ #elif defined(CC_CORE_LIB_USES_TBB)
+ 		// Otherwise we use TBB if we can
+-		tbb::task_scheduler_init init(maxThreadCount != 0 ? maxThreadCount : tbb::task_scheduler_init::automatic);
+-		tbb::parallel_for(tbb::blocked_range<int>(0, cells.size()),
+-			[&](tbb::blocked_range<int> r)
+-			{
+-				for (auto i = r.begin(); i < r.end(); ++i)
+-				{
+-					m_MT_wrapper.launchOctreeCellFunc(cells[i]);
+-				}
+-			});
++		tbb::task_arena arena(maxThreadCount != 0 ? maxThreadCount : tbb::task_arena::automatic);
++		arena.execute([&]
++		{
++			tbb::parallel_for(tbb::blocked_range<std::size_t>(0, cells.size()),
++				[&](const tbb::blocked_range<std::size_t>& r)
++				{
++					for (auto i = r.begin(); i < r.end(); ++i)
++					{
++						m_MT_wrapper.launchOctreeCellFunc(cells[i]);
++					}
++				});
++		});
+ #endif
+ 
+ #ifdef COMPUTE_NN_SEARCH_STATISTICS
+diff --git a/src/DistanceComputationTools.cpp b/src/DistanceComputationTools.cpp
+--- a/src/DistanceComputationTools.cpp
++++ b/src/DistanceComputationTools.cpp
+@@ -18,10 +18,13 @@
+ 
+ //system
+ #include <algorithm>
++#include <atomic>
+ #include <cassert>
+ 
+ //Qt
++#ifdef CC_CORE_LIB_USES_QT_CONCURRENT
+ #include <QCoreApplication>
++#endif
+ 
+ #ifndef CC_DEBUG
+ #if defined(CC_CORE_LIB_USES_QT_CONCURRENT)
+@@ -32,7 +35,9 @@
+ //enables multi-threading handling with TBB
+ #define ENABLE_CLOUD2MESH_DIST_MT
+ #include <mutex>
++#include <tbb/blocked_range.h>
+ #include <tbb/parallel_for.h>
++#include <tbb/task_arena.h>
+ #else
+ //Note that there is the case CC_DEBUG=OFF and neither TBB nor Qt
+ #undef ENABLE_CLOUD2MESH_DIST_MT
+@@ -913,8 +918,8 @@
+ 		const DgmOctree* octree = nullptr;
+ 		NormalizedProgress* normProgressCb = nullptr;
+ 		const GridAndMeshIntersection* intersection_MT = nullptr;
+-		bool cellFunc_success = true;
+-		int cellFunc_MT_results = DistanceComputationTools::DISTANCE_COMPUTATION_RESULTS::SUCCESS;
++		std::atomic<bool> cellFunc_success{true};
++		std::atomic<int> cellFunc_MT_results{DistanceComputationTools::DISTANCE_COMPUTATION_RESULTS::SUCCESS};
+ 		DistanceComputationTools::Cloud2MeshDistancesComputationParams params_MT;
+ 
+ 		//'processTriangles' mechanism (based on bit mask)
+@@ -945,7 +950,9 @@
+ 
+ 	if (s_multiThreadingWrapper.normProgressCb)
+ 	{
++#ifdef CC_CORE_LIB_USES_QT_CONCURRENT
+ 		QCoreApplication::processEvents(QEventLoop::EventLoopExec); // to allow the GUI to refresh itself
++#endif
+ 
+ 		if (!s_multiThreadingWrapper.normProgressCb->oneStep())
+ 		{
+@@ -1756,7 +1763,9 @@
+ 
+ 			//Yk.clear(); //not necessary
+ 
++#ifdef CC_CORE_LIB_USES_QT_CONCURRENT
+ 			QCoreApplication::processEvents(QEventLoop::EventLoopExec); // to allow the GUI to refresh itself
++#endif
+ 			if (progressCb && !nProgress.oneStep())
+ 			{
+ 				//process cancelled by the user
+@@ -1806,15 +1815,18 @@
+ 		QThreadPool::globalInstance()->setMaxThreadCount(params.maxThreadCount);
+ 		QtConcurrent::blockingMap(cellsDescs, CloudMeshDistCellFunc_MT);
+ #elif defined(CC_CORE_LIB_USES_TBB)
+-		tbb::parallel_for(tbb::blocked_range<int>(0, cellsDescs.size()),
+-			[&](tbb::blocked_range<int> r)
+-			{
+-				for (auto i = r.begin(); r.end(); ++i)
+-				{
+-					CloudMeshDistCellFunc_MT(cellsDescs[i]);
+-				}
+-			}
+-		);
++		tbb::task_arena arena(params.maxThreadCount != 0 ? params.maxThreadCount : tbb::task_arena::automatic);
++		arena.execute([&]
++		{
++			tbb::parallel_for(tbb::blocked_range<std::size_t>(0, cellsDescs.size()),
++				[&](const tbb::blocked_range<std::size_t>& r)
++				{
++					for (auto i = r.begin(); i < r.end(); ++i)
++					{
++						CloudMeshDistCellFunc_MT(cellsDescs[i]);
++					}
++				});
++		});
+ #endif
+ 
+ 		s_multiThreadingWrapper.octree = nullptr;
+@@ -1827,7 +1839,7 @@
+ 		{
+ 			s_multiThreadingWrapper.cellFunc_MT_results = DISTANCE_COMPUTATION_RESULTS::ERROR_EXECUTE_CLOUD_MESH_DIST_CELL_FUNC_MT_FAILURE;
+ 		}
+-		return (s_multiThreadingWrapper.cellFunc_success ? DISTANCE_COMPUTATION_RESULTS::SUCCESS : s_multiThreadingWrapper.cellFunc_MT_results);
++		return (s_multiThreadingWrapper.cellFunc_success ? DISTANCE_COMPUTATION_RESULTS::SUCCESS : s_multiThreadingWrapper.cellFunc_MT_results.load());
+ 	}
+ #endif // ENABLE_CLOUD2MESH_DIST_MT
+ }

@@ -1,0 +1,45 @@
+# 复制为 config.ini 后修改。Windows 读取 env_win，WSL/Linux 读取 env_linux。
+# 编译器路径由用户明确指定，不自动寻找另一套 VS/GCC。
+# 路径可写绝对路径；相对路径以本仓库为基准。
+# 四个输出目录留空时，按 TOOLCHAIN + CPP_STANDARD 自动命名。
+# 目录支持 ${TOOLCHAIN}、${CPP_STANDARD}，例如 build_${TOOLCHAIN}_${CPP_STANDARD}。
+# TOOLCHAIN 标签要与实际编译器一致；CPP_STANDARD 是库编译的首选标准和消费测试标准。
+# CMAKE_EXE/CMAKE_GENERATOR 用于消费测试，ports 的构建工具由 vcpkg 管理。
+
+[env_win]
+TOOLCHAIN = vc143
+CPP_STANDARD = cpp20
+# 仅为已确认不兼容的 port 回退，逗号分隔，例如 some-port=cpp17, another-port=cpp14。
+# Assimp 6.0.5 的 IFC 比较运算符在 MSVC C++20 下出现 C2666；C++17 已通过 Debug/Release。
+# VTK 9.3 内置 DIY2 使用 C++20 已移除的 allocator 成员；C++17 已通过 Debug/Release。
+CPP_STANDARD_OVERRIDES = assimp=cpp17, vtk=cpp17
+VCPKG_ROOT = D:/app/vcpkg/vcpkg
+VS_PATH = D:/app/vs/2022/Community
+CMAKE_EXE = D:/app/CMake/bin/cmake.exe
+# Windows 消费测试使用 Visual Studio 生成器，需与 VS_PATH 和 TOOLCHAIN 匹配。
+CMAKE_GENERATOR = Visual Studio 17 2022
+JOBS = 12
+BUILD_DIR =
+OUTPUT_DIR =
+DOWNLOAD_DIR =
+BINARY_CACHE_DIR =
+
+[env_linux]
+TOOLCHAIN = gcc16
+CPP_STANDARD = cpp20
+# 仅为已确认不兼容的 port 回退，逗号分隔，例如 some-port=cpp17, another-port=cpp14。
+# Windows/Linux 分别设置；当前没有确认的例外，留空。
+CPP_STANDARD_OVERRIDES =
+# 请填写 WSL 内的 Linux 版 vcpkg 工具仓库。
+VCPKG_ROOT = /home/zjgg/app/vcpkg
+GCC_EXE = /home/zjgg/app/gcc16.02/bin/gcc-16
+GXX_EXE = /home/zjgg/app/gcc16.02/bin/g++-16
+CMAKE_EXE = /usr/bin/cmake
+CMAKE_GENERATOR = Ninja
+# 按需填写自建 GCC 的运行库搜索路径，多个目录用冒号分隔。
+LD_LIBRARY_PATH = /home/zjgg/app/gcc16.02/lib64:/home/zjgg/app/gcc16.02/lib
+JOBS = 12
+BUILD_DIR =
+OUTPUT_DIR =
+DOWNLOAD_DIR =
+BINARY_CACHE_DIR =

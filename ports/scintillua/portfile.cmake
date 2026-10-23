@@ -1,0 +1,11 @@
+vcpkg_check_linkage(ONLY_DYNAMIC_LIBRARY)
+vcpkg_download_distfile(ARCHIVE URLS "https://github.com/orbitalquark/scintillua/archive/34495ab09b9e7f064295c4cddc82b66cb5cb0a27.tar.gz" FILENAME "orbitalquark-scintillua-34495ab09b9e7f064295c4cddc82b66cb5cb0a27.tar.gz"
+    SHA512 eb2169227b30ad6f8892a40d4f5ddb30455b103acea4678ce98d822aab8822022e83d2833496c742e6849054a23ad4b0b673781166ae995b5a60468e80e7280f)
+vcpkg_extract_source_archive(SOURCE_PATH ARCHIVE "${ARCHIVE}" PATCHES shared-api.patch)
+file(COPY "${CMAKE_CURRENT_LIST_DIR}/CMakeLists.txt" "${CMAKE_CURRENT_LIST_DIR}/ScintilluaConfig.cmake.in" DESTINATION "${SOURCE_PATH}")
+vcpkg_cmake_configure(SOURCE_PATH "${SOURCE_PATH}")
+vcpkg_cmake_install()
+vcpkg_cmake_config_fixup(PACKAGE_NAME Scintillua CONFIG_PATH lib/cmake/Scintillua)
+vcpkg_copy_pdbs()
+file(REMOVE_RECURSE "${CURRENT_PACKAGES_DIR}/debug/include" "${CURRENT_PACKAGES_DIR}/debug/share")
+vcpkg_install_copyright(FILE_LIST "${SOURCE_PATH}/LICENSE")

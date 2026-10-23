@@ -1,0 +1,31 @@
+{
+  "name": "pinocchio",
+  "version": "4.1.0",
+  "description": "pinocchio shared C++ SDK",
+  "homepage": "https://github.com/stack-of-tasks/pinocchio",
+  "license": "BSD-2-Clause",
+  "supports": "(windows & !uwp & !mingw) | linux",
+  "dependencies": [
+    "boost-filesystem",
+    "boost-serialization",
+    "coal",
+    "eigen3",
+    {
+      "name": "vcpkg-cmake",
+      "host": true
+    },
+    {
+      "name": "vcpkg-cmake-config",
+      "host": true
+    }
+  ],
+  "features": {
+    "urdf": {
+      "description": "URDF model parsing using urdfdom",
+      "dependencies": [
+        "urdfdom",
+        "urdfdom-headers"
+      ]
+    }
+  }
+}

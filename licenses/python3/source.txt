@@ -1,0 +1,7 @@
+Source: https://github.com/python/cpython/archive/refs/tags/v3.15.0.tar.gz
+Archive SHA512: 27fbe02a1742c0e329350167d744d612c2f8d140ed73247c24599e02dc3f2dd5f213ff5ee9e3d0a60ed8e84f06c4a4f30fb31a4ea4e570b61a03f355dfb34b74
+The port copyright retains LICENSE, Doc/license.rst and the HACL/KaRaMeL header notices.
+Modules/_hacl/include/krml/internal/target.h declares Apache 2.0 and MIT licensing.
+LICENSE-APACHE-2.0 supplements that declaration with the full standard Apache 2.0 text,
+copied from the installed OpenSSL 3.6.5 LICENSE.txt (the standard license, not its code).
+Canonical license: https://www.apache.org/licenses/LICENSE-2.0

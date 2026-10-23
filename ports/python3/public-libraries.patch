@@ -1,0 +1,269 @@
+--- a/PCbuild/pcbuild.proj
++++ b/PCbuild/pcbuild.proj
+@@ -71,12 +71,12 @@
+     <ExtensionModules Include="_asyncio;_decimal;_elementtree;_multiprocessing;_overlapped;pyexpat;_queue;_remote_debugging;select;unicodedata;winsound;_uuid;_wmi;_zoneinfo" />
+     <ExtensionModules Include="_ctypes" Condition="$(IncludeCTypes)" />
+     <!-- Extension modules that require external sources -->
+-    <ExternalModules Include="_bz2;_lzma;_sqlite3;_zstd" />
++    <ExtensionModules Include="_bz2;_lzma;_sqlite3;_zstd" />
+     <!-- venv launchers -->
+     <Projects Include="venvlauncher.vcxproj;venvwlauncher.vcxproj" />
+     <!-- _ssl will build _socket as well, which may cause conflicts in parallel builds -->
+     <ExtensionModules Include="_socket" Condition="!$(IncludeSSL) or !$(IncludeExternals)" />
+-    <ExternalModules Include="_ssl;_hashlib" Condition="$(IncludeSSL)" />
++    <ExtensionModules Include="_ssl;_hashlib" Condition="$(IncludeSSL)" />
+     <ExternalModules Include="_tkinter" Condition="$(IncludeTkinter)" />
+     <ExtensionModules Include="@(ExternalModules->'%(Identity)')" Condition="$(IncludeExternals)" />
+     <Projects Include="@(ExtensionModules->'%(Identity).vcxproj')" Condition="$(IncludeExtensions)" />
+--- a/PCbuild/_bz2.vcxproj
++++ b/PCbuild/_bz2.vcxproj
+@@ -94,24 +94,18 @@
+   </PropertyGroup>
+   <ItemDefinitionGroup>
+     <ClCompile>
+-      <AdditionalIncludeDirectories>$(bz2Dir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
++      <AdditionalIncludeDirectories>$(VcpkgPythonIncludeDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+       <PreprocessorDefinitions>WIN32;_FILE_OFFSET_BITS=64;_CRT_SECURE_NO_DEPRECATE;_CRT_NONSTDC_NO_DEPRECATE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+       <DisableSpecificWarnings>4244;4267;%(DisableSpecificWarnings)</DisableSpecificWarnings>
+     </ClCompile>
++    <Link>
++      <AdditionalDependencies>$(bzip2Library);%(AdditionalDependencies)</AdditionalDependencies>
++    </Link>
+   </ItemDefinitionGroup>
+   <ItemGroup>
+     <ClCompile Include="..\Modules\_bz2module.c" />
+-    <ClCompile Include="$(bz2Dir)\blocksort.c" />
+-    <ClCompile Include="$(bz2Dir)\bzlib.c" />
+-    <ClCompile Include="$(bz2Dir)\compress.c" />
+-    <ClCompile Include="$(bz2Dir)\crctable.c" />
+-    <ClCompile Include="$(bz2Dir)\decompress.c" />
+-    <ClCompile Include="$(bz2Dir)\huffman.c" />
+-    <ClCompile Include="$(bz2Dir)\randtable.c" />
+   </ItemGroup>
+   <ItemGroup>
+-    <ClInclude Include="$(bz2Dir)\bzlib.h" />
+-    <ClInclude Include="$(bz2Dir)\bzlib_private.h" />
+   </ItemGroup>
+   <ItemGroup>
+     <ResourceCompile Include="..\PC\python_nt.rc" />
+--- a/PCbuild/_lzma.vcxproj
++++ b/PCbuild/_lzma.vcxproj
+@@ -93,11 +93,11 @@
+   </PropertyGroup>
+   <ItemDefinitionGroup>
+     <ClCompile>
+-      <AdditionalIncludeDirectories>$(lzmaDir)src/liblzma/api;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+-      <PreprocessorDefinitions>WIN32;_FILE_OFFSET_BITS=64;_CRT_SECURE_NO_DEPRECATE;_CRT_NONSTDC_NO_DEPRECATE;LZMA_API_STATIC;%(PreprocessorDefinitions)</PreprocessorDefinitions>
++      <AdditionalIncludeDirectories>$(VcpkgPythonIncludeDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
++      <PreprocessorDefinitions>WIN32;_FILE_OFFSET_BITS=64;_CRT_SECURE_NO_DEPRECATE;_CRT_NONSTDC_NO_DEPRECATE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+     </ClCompile>
+     <Link>
+-      <AdditionalDependencies>$(OutDir)liblzma$(PyDebugExt).lib;%(AdditionalDependencies)</AdditionalDependencies>
++      <AdditionalDependencies>$(lzmaLibrary);%(AdditionalDependencies)</AdditionalDependencies>
+     </Link>
+   </ItemDefinitionGroup>
+   <ItemGroup>
+@@ -111,10 +111,6 @@
+       <Project>{cf7ac3d1-e2df-41d2-bea6-1e2556cdea26}</Project>
+       <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+     </ProjectReference>
+-    <ProjectReference Include="liblzma.vcxproj">
+-      <Project>{12728250-16eC-4dc6-94d7-e21dd88947f8}</Project>
+-      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+-    </ProjectReference>
+   </ItemGroup>
+   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+   <ImportGroup Label="ExtensionTargets">
+--- a/PCbuild/_sqlite3.vcxproj
++++ b/PCbuild/_sqlite3.vcxproj
+@@ -93,9 +93,12 @@
+   </PropertyGroup>
+   <ItemDefinitionGroup>
+     <ClCompile>
+-      <AdditionalIncludeDirectories>$(sqlite3Dir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
++      <AdditionalIncludeDirectories>$(VcpkgPythonIncludeDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+       <PreprocessorDefinitions>PY_SQLITE_HAVE_SERIALIZE;PY_SQLITE_ENABLE_LOAD_EXTENSION;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+     </ClCompile>
++    <Link>
++      <AdditionalDependencies>$(sqlite3Library);%(AdditionalDependencies)</AdditionalDependencies>
++    </Link>
+   </ItemDefinitionGroup>
+   <ItemGroup>
+     <ClInclude Include="..\Modules\_sqlite\connection.h" />
+@@ -127,10 +130,6 @@
+       <Project>{cf7ac3d1-e2df-41d2-bea6-1e2556cdea26}</Project>
+       <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+     </ProjectReference>
+-    <ProjectReference Include="sqlite3.vcxproj">
+-      <Project>{a1a295e5-463c-437f-81ca-1f32367685da}</Project>
+-      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+-    </ProjectReference>
+   </ItemGroup>
+   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+   <ImportGroup Label="ExtensionTargets">
+--- a/PCbuild/pyexpat.vcxproj
++++ b/PCbuild/pyexpat.vcxproj
+@@ -90,22 +90,15 @@
+   <PropertyGroup Label="UserMacros" />
+   <ItemDefinitionGroup>
+     <ClCompile>
+-      <AdditionalIncludeDirectories>$(PySourcePath)Modules\expat;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+-      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;XML_STATIC;%(PreprocessorDefinitions)</PreprocessorDefinitions>
++      <AdditionalIncludeDirectories>$(VcpkgPythonIncludeDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
++      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+     </ClCompile>
++    <Link>
++      <AdditionalDependencies>$(expatLibrary);%(AdditionalDependencies)</AdditionalDependencies>
++    </Link>
+   </ItemDefinitionGroup>
+   <ItemGroup>
+-    <ClInclude Include="..\Modules\expat\fallthrough.h" />
+-    <ClInclude Include="..\Modules\expat\hash_table.h" />
+-    <ClInclude Include="..\Modules\expat\memory_sanitizer.h" />
+-    <ClInclude Include="..\Modules\expat\xmlrole.h" />
+-    <ClInclude Include="..\Modules\expat\xmltok.h" />
+-  </ItemGroup>
+-  <ItemGroup>
+     <ClCompile Include="..\Modules\pyexpat.c" />
+-    <ClCompile Include="..\Modules\expat\xmlparse.c" />
+-    <ClCompile Include="..\Modules\expat\xmlrole.c" />
+-    <ClCompile Include="..\Modules\expat\xmltok.c" />
+   </ItemGroup>
+   <ItemGroup>
+     <ResourceCompile Include="..\PC\python_nt.rc" />
+--- a/PCbuild/_elementtree.vcxproj
++++ b/PCbuild/_elementtree.vcxproj
+@@ -93,34 +93,15 @@
+   </PropertyGroup>
+   <ItemDefinitionGroup>
+     <ClCompile>
+-      <AdditionalIncludeDirectories>..\Modules\expat;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+-      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;XML_STATIC;%(PreprocessorDefinitions)</PreprocessorDefinitions>
++      <AdditionalIncludeDirectories>$(VcpkgPythonIncludeDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
++      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+     </ClCompile>
++    <Link>
++      <AdditionalDependencies>$(expatLibrary);%(AdditionalDependencies)</AdditionalDependencies>
++    </Link>
+   </ItemDefinitionGroup>
+   <ItemGroup>
+-    <ClInclude Include="..\Modules\expat\ascii.h" />
+-    <ClInclude Include="..\Modules\expat\asciitab.h" />
+-    <ClInclude Include="..\Modules\expat\expat.h" />
+-    <ClInclude Include="..\Modules\expat\expat_config.h" />
+-    <ClInclude Include="..\Modules\expat\expat_external.h" />
+-    <ClInclude Include="..\Modules\expat\fallthrough.h" />
+-    <ClInclude Include="..\Modules\expat\hash_table.h" />
+-    <ClInclude Include="..\Modules\expat\iasciitab.h" />
+-    <ClInclude Include="..\Modules\expat\internal.h" />
+-    <ClInclude Include="..\Modules\expat\latin1tab.h" />
+-    <ClInclude Include="..\Modules\expat\memory_sanitizer.h" />
+-    <ClInclude Include="..\Modules\expat\nametab.h" />
+-    <ClInclude Include="..\Modules\expat\pyexpatns.h" />
+-    <ClInclude Include="..\Modules\expat\utf8tab.h" />
+-    <ClInclude Include="..\Modules\expat\winconfig.h" />
+-    <ClInclude Include="..\Modules\expat\xmlrole.h" />
+-    <ClInclude Include="..\Modules\expat\xmltok.h" />
+-  </ItemGroup>
+-  <ItemGroup>
+     <ClCompile Include="..\Modules\_elementtree.c" />
+-    <ClCompile Include="..\Modules\expat\xmlparse.c" />
+-    <ClCompile Include="..\Modules\expat\xmlrole.c" />
+-    <ClCompile Include="..\Modules\expat\xmltok.c" />
+   </ItemGroup>
+   <ItemGroup>
+     <ResourceCompile Include="..\PC\python_nt.rc" />
+--- a/PCbuild/_zstd.vcxproj
++++ b/PCbuild/_zstd.vcxproj
+@@ -94,73 +94,23 @@
+   </PropertyGroup>
+   <ItemDefinitionGroup>
+     <ClCompile>
+-      <PreprocessorDefinitions>WIN32;ZSTD_MULTITHREAD=1;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+-      <AdditionalIncludeDirectories>$(zstdDir)lib\;$(zstdDir)lib\common;$(zstdDir)lib\compress;$(zstdDir)lib\decompress;$(zstdDir)lib\dictBuilder;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
++      <PreprocessorDefinitions>WIN32;%(PreprocessorDefinitions)</PreprocessorDefinitions>
++      <AdditionalIncludeDirectories>$(VcpkgPythonIncludeDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+     </ClCompile>
++    <Link>
++      <AdditionalDependencies>$(zstdLibrary);%(AdditionalDependencies)</AdditionalDependencies>
++    </Link>
+   </ItemDefinitionGroup>
+   <ItemGroup>
+     <ClCompile Include="..\Modules\_zstd\_zstdmodule.c" />
+     <ClCompile Include="..\Modules\_zstd\compressor.c" />
+     <ClCompile Include="..\Modules\_zstd\decompressor.c" />
+     <ClCompile Include="..\Modules\_zstd\zstddict.c" />
+-    <ClCompile Include="$(zstdDir)lib\common\debug.c" />
+-    <ClCompile Include="$(zstdDir)lib\common\entropy_common.c" />
+-    <ClCompile Include="$(zstdDir)lib\common\error_private.c" />
+-    <ClCompile Include="$(zstdDir)lib\common\fse_decompress.c" />
+-    <ClCompile Include="$(zstdDir)lib\common\pool.c" />
+-    <ClCompile Include="$(zstdDir)lib\common\threading.c" />
+-    <ClCompile Include="$(zstdDir)lib\common\xxhash.c" />
+-    <ClCompile Include="$(zstdDir)lib\common\zstd_common.c" />
+-    <ClCompile Include="$(zstdDir)lib\compress\fse_compress.c" />
+-    <ClCompile Include="$(zstdDir)lib\compress\hist.c" />
+-    <ClCompile Include="$(zstdDir)lib\compress\huf_compress.c" />
+-    <ClCompile Include="$(zstdDir)lib\compress\zstd_compress.c" />
+-    <ClCompile Include="$(zstdDir)lib\compress\zstd_compress_literals.c" />
+-    <ClCompile Include="$(zstdDir)lib\compress\zstd_compress_sequences.c" />
+-    <ClCompile Include="$(zstdDir)lib\compress\zstd_compress_superblock.c" />
+-    <ClCompile Include="$(zstdDir)lib\compress\zstd_double_fast.c" />
+-    <ClCompile Include="$(zstdDir)lib\compress\zstd_fast.c" />
+-    <ClCompile Include="$(zstdDir)lib\compress\zstd_lazy.c" />
+-    <ClCompile Include="$(zstdDir)lib\compress\zstd_ldm.c" />
+-    <ClCompile Include="$(zstdDir)lib\compress\zstd_opt.c" />
+-    <ClCompile Include="$(zstdDir)lib\compress\zstd_preSplit.c" />
+-    <ClCompile Include="$(zstdDir)lib\compress\zstdmt_compress.c" />
+-    <ClCompile Include="$(zstdDir)lib\decompress\huf_decompress.c" />
+-    <ClCompile Include="$(zstdDir)lib\decompress\zstd_ddict.c" />
+-    <ClCompile Include="$(zstdDir)lib\decompress\zstd_decompress.c" />
+-    <ClCompile Include="$(zstdDir)lib\decompress\zstd_decompress_block.c" />
+-    <ClCompile Include="$(zstdDir)lib\dictBuilder\cover.c" />
+-    <ClCompile Include="$(zstdDir)lib\dictBuilder\divsufsort.c" />
+-    <ClCompile Include="$(zstdDir)lib\dictBuilder\fastcover.c" />
+-    <ClCompile Include="$(zstdDir)lib\dictBuilder\zdict.c" />
+   </ItemGroup>
+   <ItemGroup>
+     <ClInclude Include="..\Modules\_zstd\_zstdmodule.h" />
+     <ClInclude Include="..\Modules\_zstd\buffer.h" />
+     <ClInclude Include="..\Modules\_zstd\zstddict.h" />
+-    <ClInclude Include="$(zstdDir)lib\common\bitstream.h" />
+-    <ClInclude Include="$(zstdDir)lib\common\error_private.h" />
+-    <ClInclude Include="$(zstdDir)lib\common\fse.h" />
+-    <ClInclude Include="$(zstdDir)lib\common\huf.h" />
+-    <ClInclude Include="$(zstdDir)lib\common\mem.h" />
+-    <ClInclude Include="$(zstdDir)lib\common\pool.h" />
+-    <ClInclude Include="$(zstdDir)lib\common\threading.h" />
+-    <ClInclude Include="$(zstdDir)lib\common\xxhash.h" />
+-    <ClInclude Include="$(zstdDir)lib\common\zstd_internal.h" />
+-    <ClInclude Include="$(zstdDir)lib\compress\zstd_compress.h" />
+-    <ClInclude Include="$(zstdDir)lib\compress\zstd_compress_literals.h" />
+-    <ClInclude Include="$(zstdDir)lib\compress\zstd_compress_sequences.h" />
+-    <ClInclude Include="$(zstdDir)lib\compress\zstd_compress_superblock.h" />
+-    <ClInclude Include="$(zstdDir)lib\compress\zstd_cwksp.h" />
+-    <ClInclude Include="$(zstdDir)lib\compress\zstd_double_fast.h" />
+-    <ClInclude Include="$(zstdDir)lib\compress\zstd_fast.h" />
+-    <ClInclude Include="$(zstdDir)lib\compress\zstd_lazy.h" />
+-    <ClInclude Include="$(zstdDir)lib\compress\zstd_ldm.h" />
+-    <ClInclude Include="$(zstdDir)lib\compress\zstd_opt.h" />
+-    <ClInclude Include="$(zstdDir)lib\compress\zstdmt_compress.h" />
+-    <ClInclude Include="$(zstdDir)lib\decompress\zstd_ddict.h" />
+-    <ClInclude Include="$(zstdDir)lib\zstd.h" />
+-    <ClInclude Include="$(zstdDir)lib\zstd_errors.h" />
+   </ItemGroup>
+   <ItemGroup>
+     <ResourceCompile Include="..\PC\python_nt.rc" />
+--- a/PCbuild/_ssl.vcxproj
++++ b/PCbuild/_ssl.vcxproj
+@@ -108,10 +108,6 @@
+       <Project>{cf7ac3d1-e2df-41d2-bea6-1e2556cdea26}</Project>
+       <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+     </ProjectReference>
+-    <ProjectReference Include="_socket.vcxproj">
+-      <Project>{86937f53-c189-40ef-8ce8-8759d8e7d480}</Project>
+-      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+-    </ProjectReference>
+   </ItemGroup>
+   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+   <ImportGroup Label="ExtensionTargets">

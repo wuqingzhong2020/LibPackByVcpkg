@@ -1,0 +1,22 @@
+{
+  "name": "scintillua",
+  "version": "6.7",
+  "description": "Scintillua cross-platform SDK",
+  "homepage": "https://www.scintilla.org/",
+  "license": "MIT",
+  "supports": "(windows & !uwp & !mingw) | linux",
+  "dependencies": [
+    "lexilla",
+    "lpeg",
+    "lua",
+    "scintilla",
+    {
+      "name": "vcpkg-cmake",
+      "host": true
+    },
+    {
+      "name": "vcpkg-cmake-config",
+      "host": true
+    }
+  ]
+}

@@ -1,0 +1,8 @@
+Qt qt5compat 6.11.2 source attribution catalog
+Source: https://download.qt.io/archive/qt/6.11/6.11.2/submodules/qt5compat-everywhere-src-6.11.2.tar.xz
+SHA512: 50137be7607d36980f424dbbdc209360a4cfd395474210c65bd14b253fedd6af9b2bd22014ce24a035c88c82e65422aa559da5ca46c04248b954f473d911e82a
+
+Original src/**/qt_attribution.json files, their referenced LicenseFile texts, and root LICENSES files are preserved.
+This is a source notice superset, not a claim that every listed component was compiled or linked.
+Actual vcpkg features and external system libraries determine the application runtime closure.
+Development-tool licenses remain separate from runtime license selection.

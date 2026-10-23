@@ -1,0 +1,74 @@
+diff --git a/Scintillua.h b/Scintillua.h
+--- a/Scintillua.h
++++ b/Scintillua.h
+@@ -14,11 +14,26 @@ extern "C" {
+ #define ILEXER5 void
+ #endif
+ 
+-const char *GetLibraryPropertyNames();
+-void SetLibraryProperty(const char *key, const char *value);
+-const char *GetNameSpace();
+-ILEXER5 *CreateLexer(const char *name);
+-const char *GetCreateLexerError();
++// Match the shared library's export and calling conventions.
++#ifdef _WIN32
++#ifdef Scintillua_EXPORTS
++#define SCINTILLUA_API __declspec(dllexport)
++#else
++#define SCINTILLUA_API __declspec(dllimport)
++#endif
++#define SCINTILLUA_CALL __stdcall
++#else
++#define SCINTILLUA_API __attribute__((visibility("default")))
++#define SCINTILLUA_CALL
++#endif
++
++SCINTILLUA_API const char *SCINTILLUA_CALL GetLibraryPropertyNames();
++SCINTILLUA_API void SCINTILLUA_CALL SetLibraryProperty(const char *key, const char *value);
++SCINTILLUA_API const char *SCINTILLUA_CALL GetNameSpace();
++SCINTILLUA_API ILEXER5 *SCINTILLUA_CALL CreateLexer(const char *name);
++SCINTILLUA_API const char *SCINTILLUA_CALL GetCreateLexerError();
++#undef SCINTILLUA_API
++#undef SCINTILLUA_CALL
+ 
+ #ifdef __cplusplus
+ }
+diff --git a/Scintillua.cxx b/Scintillua.cxx
+--- a/Scintillua.cxx
++++ b/Scintillua.cxx
+@@ -543,6 +543,11 @@ const char *Scintillua::PropertyGet(const char *key) { return props.Get(key); }
+ 
+ const char *Scintillua::GetName() { return name.c_str(); }
+ 
++std::string lexersDir;
++std::string errorMessage;
++
++} // namespace
++
+ #if _WIN32
+ #if !NO_DLL
+ #define EXPORT_FUNCTION __declspec(dllexport)
+@@ -570,8 +575,6 @@ EXPORT_FUNCTION const char *CALLING_CONVENTION GetLibraryPropertyNames() {
+   return "scintillua.lexers\n";
+ }
+ 
+-std::string lexersDir;
+-
+ EXPORT_FUNCTION void CALLING_CONVENTION SetLibraryProperty(const char *key, const char *value) {
+   if (std::string_view{key} == "scintillua.lexers") lexersDir = value;
+ }
+@@ -578,8 +581,6 @@ EXPORT_FUNCTION void CALLING_CONVENTION SetLibraryProperty(const char *key, const char *value) {
+ 
+ EXPORT_FUNCTION const char *CALLING_CONVENTION GetNameSpace() { return "scintillua"; }
+ 
+-std::string errorMessage;
+-
+ EXPORT_FUNCTION Scintilla::ILexer5 *CALLING_CONVENTION CreateLexer(const char *name) {
+   auto lexer = new Scintillua(lexersDir, name);
+   errorMessage = lexer->PropertyGet(Scintillua::LexerErrorKey);
+@@ -594,5 +595,3 @@ EXPORT_FUNCTION const char *CALLING_CONVENTION GetCreateLexerError() {
+   return errorMessage.c_str();
+ }
+ }
+-
+-} // namespace

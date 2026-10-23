@@ -1,0 +1,26 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index d851ae5..f3a1fc3 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -176,7 +176,7 @@ else()
+ endif()
+ 
+ # Optional dependencies
+-ADD_PROJECT_DEPENDENCY(octomap 1.8.0 PKG_CONFIG_REQUIRES "octomap >= 1.8")
++ADD_PROJECT_DEPENDENCY(octomap 1.8.0 CONFIG REQUIRED PKG_CONFIG_REQUIRES "octomap >= 1.8")
+ if(octomap_FOUND)
+   set(COAL_HAS_OCTOMAP TRUE)
+   string(REPLACE "." ";" VERSION_LIST ${octomap_VERSION})
+@@ -191,10 +191,10 @@ endif()
+ 
+ option(COAL_HAS_QHULL "use qhull library to compute convex hulls." FALSE)
+ if(COAL_HAS_QHULL)
+-  find_package(Qhull REQUIRED COMPONENTS qhull_r qhullcpp)
++  ADD_PROJECT_DEPENDENCY(Qhull CONFIG REQUIRED)
+ endif()
+ 
+-find_package(assimp REQUIRED)
++ADD_PROJECT_DEPENDENCY(assimp CONFIG REQUIRED)
+ 
+ set(
+   ${PROJECT_NAME}_HEADERS

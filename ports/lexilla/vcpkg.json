@@ -1,0 +1,19 @@
+{
+  "name": "lexilla",
+  "version": "5.4.6",
+  "description": "Lexilla cross-platform SDK",
+  "homepage": "https://www.scintilla.org/",
+  "license": "HPND",
+  "supports": "(windows & !uwp & !mingw) | linux",
+  "dependencies": [
+    "scintilla",
+    {
+      "name": "vcpkg-cmake",
+      "host": true
+    },
+    {
+      "name": "vcpkg-cmake-config",
+      "host": true
+    }
+  ]
+}

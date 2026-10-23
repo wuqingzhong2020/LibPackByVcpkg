@@ -1,0 +1,5 @@
+Source: https://github.com/tukaani-project/xz/archive/refs/tags/v5.8.4.tar.gz
+Archive SHA512: 6a0e9c3b05f9c20255c5e35c06fdcd44b9e201f4ed566d1dec052b6cfda6cdfb42f73ffd258eaad2d8b7737c66b78ae353aebd44502e24a3d89d8765d698dcae
+COPYING.0BSD is copied unchanged from this archive.
+The installed port copyright contains the upstream component/license summary.
+This SDK uses the liblzma library under 0BSD; the CPython dependency does not select tools.

@@ -1,0 +1,11 @@
+Local CPython 3.15.0 SDK changes
+
+Build native x64 free-threaded shared libraries in Release and Debug configurations.
+Use the upstream PCbuild/configure build systems with JIT and tail-call interpreter disabled.
+Link libffi, mpdecimal, zlib, OpenSSL, SQLite3, zstd, bzip2, liblzma and Expat from vcpkg.
+Keep CPython's bundled mimalloc and HACL implementation.
+Do not build Tcl/Tk, GNU Readline, pip or CPython test modules.
+Linux also disables curses, dbm/gdbm and the system UUID backend.
+Arrange the SDK layout, dependent DLLs, relative library search paths and sysconfig
+metadata for relocation. Export a CPython::Python CMake target for consumers.
+The repository ports/python3 directory contains the exact patches and build recipes.

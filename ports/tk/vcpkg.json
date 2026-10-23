@@ -1,0 +1,20 @@
+{
+  "name": "tk",
+  "version": "9.0.3",
+  "description": "Tk GUI toolkit, matching Tcl 9.0.3",
+  "homepage": "https://www.tcl.tk/",
+  "license": "TCL",
+  "supports": "(windows & !uwp & !mingw) | linux",
+  "dependencies": [
+    "tcl",
+    {
+      "name": "vcpkg-cmake-get-vars",
+      "host": true
+    },
+    {
+      "name": "vcpkg-make",
+      "host": true,
+      "platform": "linux"
+    }
+  ]
+}

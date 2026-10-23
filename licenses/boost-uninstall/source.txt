@@ -1,0 +1,3 @@
+MIT license for the Microsoft vcpkg boost-uninstall helper and its share/boost/vcpkg-cmake-wrapper.cmake.
+Source: https://github.com/microsoft/vcpkg/blob/a073c28e52d920cb2465a17512324b3b6684d03a/LICENSE.txt
+The upstream helper does not install share/boost-uninstall/copyright; this is its repository license, not a Boost runtime library license.

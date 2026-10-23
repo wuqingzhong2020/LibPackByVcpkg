@@ -1,3 +1,18 @@
+/build/
+/installed/
+/downloads/
+/binary-cache/
+/build_*/
+/install_*/
+/downloads_*/
+/binary-cache_*/
+__pycache__/
+*.pyc
+CMakeUserPresets.json
+/config.ini
+/config.*.ini
+.vs/
+
 # Prerequisites
 *.d
 

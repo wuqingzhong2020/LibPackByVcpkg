@@ -1,0 +1,20 @@
+vcpkg_check_linkage(ONLY_DYNAMIC_LIBRARY)
+vcpkg_from_github(
+    OUT_SOURCE_PATH SOURCE_PATH
+    REPO czyt1988/SARibbon
+    REF b50d2d5bf0f36caec0df53328f60f6203944ed89
+    SHA512 9ad227ae9c3bfec8b37b90041bd4a63054253717f3f300c77afb53a62bd8f83eada89437b787789c9436c32ef244fe0b98374ebca76ef95606cbaa2cbd7d0ef5
+    PATCHES sdk.patch
+)
+vcpkg_cmake_configure(
+    SOURCE_PATH "${SOURCE_PATH}"
+    OPTIONS
+        -DSARIBBON_BUILD_STATIC_LIBS=OFF -DSARIBBON_BUILD_EXAMPLES=OFF
+        -DBUILD_TESTS=OFF -DSARIBBON_INSTALL_IN_CURRENT_DIR=OFF
+        -DSARIBBON_USE_FRAMELESS_LIB=OFF -DSARIBBON_ENABLE_SNAPLAYOUT=OFF
+)
+vcpkg_cmake_install()
+vcpkg_cmake_config_fixup(PACKAGE_NAME SARibbonBar CONFIG_PATH lib/cmake/SARibbonBar)
+vcpkg_copy_pdbs()
+file(REMOVE_RECURSE "${CURRENT_PACKAGES_DIR}/debug/include" "${CURRENT_PACKAGES_DIR}/debug/share")
+vcpkg_install_copyright(FILE_LIST "${SOURCE_PATH}/LICENSE")

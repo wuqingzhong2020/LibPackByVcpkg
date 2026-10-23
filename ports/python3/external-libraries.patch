@@ -1,0 +1,165 @@
+diff --git a/PCbuild/_decimal.vcxproj b/PCbuild/_decimal.vcxproj
+--- a/PCbuild/_decimal.vcxproj
++++ b/PCbuild/_decimal.vcxproj
+@@ -93,60 +93,19 @@
+   </PropertyGroup>
+   <ItemDefinitionGroup>
+     <ClCompile>
+-      <PreprocessorDefinitions>BUILD_LIBMPDEC;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
++      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+       <PreprocessorDefinitions Condition="'$(Platform)' == 'Win32'">CONFIG_32;PPRO;MASM;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+       <PreprocessorDefinitions Condition="'$(Platform)'=='ARM'">CONFIG_32;ANSI;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+       <PreprocessorDefinitions Condition="'$(Platform)'=='ARM64'">CONFIG_64;ANSI;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+       <PreprocessorDefinitions Condition="'$(Platform)' == 'x64'">CONFIG_64;MASM;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+-      <AdditionalIncludeDirectories>..\Modules\_decimal;..\Modules\_decimal\windows;$(mpdecimalDir)\libmpdec;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
++      <AdditionalIncludeDirectories>$(mpdecimalIncludeDir);..\Modules\_decimal;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+     </ClCompile>
++    <Link>
++      <AdditionalDependencies>$(mpdecimalLibrary);%(AdditionalDependencies)</AdditionalDependencies>
++    </Link>
+   </ItemDefinitionGroup>
+   <ItemGroup>
+-    <ClInclude Include="$(mpdecimalDir)\libmpdec\basearith.h" />
+-    <ClInclude Include="$(mpdecimalDir)\libmpdec\bits.h" />
+-    <ClInclude Include="$(mpdecimalDir)\libmpdec\constants.h" />
+-    <ClInclude Include="$(mpdecimalDir)\libmpdec\convolute.h" />
+-    <ClInclude Include="$(mpdecimalDir)\libmpdec\crt.h" />
+-    <ClInclude Include="$(mpdecimalDir)\libmpdec\difradix2.h" />
+-    <ClInclude Include="$(mpdecimalDir)\libmpdec\fnt.h" />
+-    <ClInclude Include="$(mpdecimalDir)\libmpdec\fourstep.h" />
+-    <ClInclude Include="..\Modules\_decimal\windows\mpdecimal.h" />
+-    <ClInclude Condition="'$(Platform)' == 'Win32'" Include="$(mpdecimalDir)\libmpdec\mpdecimal32vc.h" />
+-    <ClInclude Condition="'$(Platform)' == 'ARM'" Include="$(mpdecimalDir)\libmpdec\mpdecimal32vc.h" />
+-    <ClInclude Condition="'$(Platform)' == 'ARM64'" Include="$(mpdecimalDir)\libmpdec\mpdecimal64vc.h" />
+-    <ClInclude Condition="'$(Platform)' == 'x64'" Include="$(mpdecimalDir)\libmpdec\mpdecimal64vc.h" />
+-    <ClInclude Include="$(mpdecimalDir)\libmpdec\numbertheory.h" />
+-    <ClInclude Include="$(mpdecimalDir)\libmpdec\sixstep.h" />
+-    <ClInclude Include="$(mpdecimalDir)\libmpdec\transpose.h" />
+-    <ClInclude Include="$(mpdecimalDir)\libmpdec\typearith.h" />
+-    <ClInclude Include="$(mpdecimalDir)\libmpdec\umodarith.h" />
+-    <ClInclude Include="$(mpdecimalDir)\libmpdec\vccompat.h" />
+-  </ItemGroup>
+-  <ItemGroup>
+     <ClCompile Include="..\Modules\_decimal\_decimal.c" />
+-    <ClCompile Include="$(mpdecimalDir)\libmpdec\basearith.c" />
+-    <ClCompile Include="$(mpdecimalDir)\libmpdec\constants.c" />
+-    <ClCompile Include="$(mpdecimalDir)\libmpdec\context.c" />
+-    <ClCompile Include="$(mpdecimalDir)\libmpdec\convolute.c" />
+-    <ClCompile Include="$(mpdecimalDir)\libmpdec\crt.c" />
+-    <ClCompile Include="$(mpdecimalDir)\libmpdec\difradix2.c" />
+-    <ClCompile Include="$(mpdecimalDir)\libmpdec\fnt.c" />
+-    <ClCompile Include="$(mpdecimalDir)\libmpdec\fourstep.c" />
+-    <ClCompile Include="$(mpdecimalDir)\libmpdec\io.c" />
+-    <ClCompile Include="$(mpdecimalDir)\libmpdec\mpalloc.c" />
+-    <ClCompile Include="$(mpdecimalDir)\libmpdec\mpdecimal.c" />
+-    <ClCompile Include="$(mpdecimalDir)\libmpdec\numbertheory.c" />
+-    <ClCompile Include="$(mpdecimalDir)\libmpdec\sixstep.c" />
+-    <ClCompile Include="$(mpdecimalDir)\libmpdec\transpose.c" />
+-  </ItemGroup>
+-  <ItemGroup>
+-    <CustomBuild Include="$(mpdecimalDir)\libmpdec\vcdiv64.asm">
+-      <ExcludedFromBuild Condition="'$(Platform)'=='Win32'">true</ExcludedFromBuild>
+-      <ExcludedFromBuild Condition="'$(Platform)'=='ARM'">true</ExcludedFromBuild>
+-      <ExcludedFromBuild Condition="'$(Platform)'=='ARM64'">true</ExcludedFromBuild>
+-      <Command>ml64 /nologo /c /Zi /Fo "$(IntDir)vcdiv64.obj" "%(FullPath)"</Command>
+-      <Outputs>$(IntDir)vcdiv64.obj;%(Outputs)</Outputs>
+-    </CustomBuild>
+   </ItemGroup>
+   <ItemGroup>
+     <ResourceCompile Include="..\PC\python_nt.rc" />
+diff --git a/PCbuild/pythoncore.vcxproj b/PCbuild/pythoncore.vcxproj
+--- a/PCbuild/pythoncore.vcxproj
++++ b/PCbuild/pythoncore.vcxproj
+@@ -84,6 +84,8 @@
+     <RequireProfileData>true</RequireProfileData>
+     <IncludeExternals Condition="$(IncludeExternals) == '' and Exists('$(zlibNgDir)\zlib-ng.h.in')">true</IncludeExternals>
+     <IncludeExternals Condition="$(IncludeExternals) == ''">false</IncludeExternals>
++    <IncludeZlib Condition="'$(zlibLibrary)' != '' or $(IncludeExternals)">true</IncludeZlib>
++    <IncludeZlib Condition="'$(IncludeZlib)' == ''">false</IncludeZlib>
+   </PropertyGroup>
+   <ImportGroup Label="PropertySheets">
+     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+@@ -102,9 +104,10 @@
+       <AdditionalOptions>/Zm200  %(AdditionalOptions)</AdditionalOptions>
+       <AdditionalIncludeDirectories>$(PySourcePath)Modules\_hacl;$(PySourcePath)Modules\_hacl\include;$(PySourcePath)Python;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+       <AdditionalIncludeDirectories Condition="$(IncludeExternals)">$(zlibNgDir);$(GeneratedZlibNgDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
++      <AdditionalIncludeDirectories Condition="'$(zlibLibrary)' != ''">$(zlibIncludeDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+       <AdditionalIncludeDirectories Condition="'$(UseJIT)' == 'true'">$(GeneratedJitStencilsDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+       <PreprocessorDefinitions>_USRDLL;Py_BUILD_CORE;Py_BUILD_CORE_BUILTIN;Py_ENABLE_SHARED;MS_DLL_ID="$(SysWinVer)";ZLIB_COMPAT;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+-      <PreprocessorDefinitions Condition="$(IncludeExternals)">_Py_HAVE_ZLIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
++      <PreprocessorDefinitions Condition="$(IncludeZlib)">_Py_HAVE_ZLIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+       <PreprocessorDefinitions Condition="'$(UseJIT)' == 'true'">_Py_JIT;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+       <PreprocessorDefinitions Condition="'$(UseTIER2)' != '' and '$(UseTIER2)' != '0'">_Py_TIER2=$(UseTIER2);%(PreprocessorDefinitions)</PreprocessorDefinitions>
+       <PreprocessorDefinitions Condition="'$(UseTailCallInterp)' == 'true'">_Py_TAIL_CALL_INTERP=1;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+@@ -114,7 +117,8 @@
+     </ClCompile>
+     <Link>
+       <AdditionalDependencies>version.lib;ws2_32.lib;pathcch.lib;bcrypt.lib;%(AdditionalDependencies)</AdditionalDependencies>
+-      <AdditionalDependencies Condition="$(IncludeExternals)">zlib-ng$(PyDebugExt).lib;%(AdditionalDependencies)</AdditionalDependencies>
++      <AdditionalDependencies Condition="$(IncludeExternals) and '$(zlibLibrary)' == ''">zlib-ng$(PyDebugExt).lib;%(AdditionalDependencies)</AdditionalDependencies>
++      <AdditionalDependencies Condition="'$(zlibLibrary)' != ''">$(zlibLibrary);%(AdditionalDependencies)</AdditionalDependencies>
+       <AdditionalDependencies Condition="'$(UseJIT)' == 'true' and $(Platform) == 'ARM64'">$(GeneratedJitStencilsDir)jit_shim-aarch64-pc-windows-msvc.o;%(AdditionalDependencies)</AdditionalDependencies>
+       <AdditionalDependencies Condition="'$(UseJIT)' == 'true' and $(Platform) == 'Win32'">$(GeneratedJitStencilsDir)jit_shim-i686-pc-windows-msvc.o;%(AdditionalDependencies)</AdditionalDependencies>
+       <AdditionalDependencies Condition="'$(UseJIT)' == 'true' and $(Platform) == 'x64'">$(GeneratedJitStencilsDir)jit_shim-x86_64-pc-windows-msvc.o;%(AdditionalDependencies)</AdditionalDependencies>
+@@ -480,7 +484,7 @@
+     <ClCompile Include="..\Modules\arraymodule.c" />
+     <ClCompile Include="..\Modules\atexitmodule.c" />
+     <ClCompile Include="..\Modules\binascii.c">
+-      <PreprocessorDefinitions>USE_ZLIB_CRC32;%(PreprocessorDefinitions)</PreprocessorDefinitions>
++      <PreprocessorDefinitions Condition="$(IncludeZlib)">USE_ZLIB_CRC32;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+     </ClCompile>
+     <ClCompile Include="..\Modules\cmathmodule.c" />
+     <ClCompile Include="..\Modules\_datetimemodule.c" />
+@@ -705,7 +709,7 @@
+     <ClCompile Include="..\Python\tracemalloc.c" />
+     <ClCompile Include="..\Python\uniqueid.c" />
+   </ItemGroup>
+-  <ItemGroup Condition="$(IncludeExternals)">
++  <ItemGroup Condition="$(IncludeZlib)">
+     <ClCompile Include="..\Modules\zlibmodule.c" />
+   </ItemGroup>
+   <ItemGroup>
+@@ -715,7 +719,7 @@
+     <ResourceCompile Include="..\PC\python_nt.rc" />
+   </ItemGroup>
+   <ItemGroup>
+-    <ProjectReference Include="zlib-ng.vcxproj" Condition="$(IncludeExternals)">
++    <ProjectReference Include="zlib-ng.vcxproj" Condition="$(IncludeExternals) and '$(zlibLibrary)' == ''">
+       <Project>{fb91c8b2-6fbc-3a01-b644-1637111f902d}</Project>
+       <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+     </ProjectReference>
+@@ -752,7 +756,7 @@
+   <Target Name="_WarnAboutToolset" BeforeTargets="PrepareForBuild" Condition="$(PlatformToolset) != 'v143' and $(PlatformToolset) != 'v145'">
+     <Warning Text="Toolset $(PlatformToolset) is not used for official builds. Your build may have errors or incompatibilities." />
+   </Target>
+-  <Target Name="_WarnAboutZlib" BeforeTargets="PrepareForBuild" Condition="!$(IncludeExternals)">
++  <Target Name="_WarnAboutZlib" BeforeTargets="PrepareForBuild" Condition="!$(IncludeZlib)">
+     <Warning Text="Not including zlib or zlib-ng is not a supported configuration." />
+   </Target>
+ 
+diff --git a/PCbuild/libffi.props b/PCbuild/libffi.props
+--- a/PCbuild/libffi.props
++++ b/PCbuild/libffi.props
+@@ -2,20 +2,10 @@
+ <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+   <ItemDefinitionGroup>
+     <ClCompile>
+       <AdditionalIncludeDirectories>$(libffiIncludeDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+     </ClCompile>
+     <Link>
+-      <AdditionalLibraryDirectories>$(libffiOutDir);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+-      <AdditionalDependencies>libffi-8.lib;%(AdditionalDependencies)</AdditionalDependencies>
++      <AdditionalDependencies>$(libffiLibrary);%(AdditionalDependencies)</AdditionalDependencies>
+     </Link>
+   </ItemDefinitionGroup>
+-  <ItemGroup>
+-    <_LIBFFIDLL Include="$(libffiOutDir)\libffi-8.dll" />
+-  </ItemGroup>
+-  <Target Name="_CopyLIBFFIDLL" Inputs="@(_LIBFFIDLL)" Outputs="@(_LIBFFIDLL->'$(OutDir)%(Filename)%(Extension)')" AfterTargets="Build">
+-    <Copy SourceFiles="@(_LIBFFIDLL)" DestinationFolder="$(OutDir)" />
+-  </Target>
+-  <Target Name="_CleanLIBFFIDLL" BeforeTargets="Clean">
+-    <Delete Files="@(_LIBFFIDLL->'$(OutDir)%(Filename)%(Extension)')" TreatErrorsAsWarnings="true" />
+-  </Target>
+ </Project>
+\ No newline at end of file

@@ -1,0 +1,27 @@
+if(TARGET CPython::Python)
+    return()
+endif()
+get_filename_component(_cpython_prefix "${CMAKE_CURRENT_LIST_DIR}/../.." ABSOLUTE)
+set(CPython_VERSION "@VERSION@")
+add_library(CPython::Python SHARED IMPORTED)
+set_target_properties(CPython::Python PROPERTIES
+    IMPORTED_CONFIGURATIONS "RELEASE;DEBUG"
+    MAP_IMPORTED_CONFIG_RELWITHDEBINFO RELEASE
+    MAP_IMPORTED_CONFIG_MINSIZEREL RELEASE
+    INTERFACE_INCLUDE_DIRECTORIES "${_cpython_prefix}/include/python3.15t"
+    INTERFACE_COMPILE_DEFINITIONS "Py_GIL_DISABLED=1;$<$<CONFIG:Debug>:Py_DEBUG>"
+)
+if(WIN32)
+    set_target_properties(CPython::Python PROPERTIES
+        IMPORTED_LOCATION_RELEASE "${_cpython_prefix}/bin/python315t.dll"
+        IMPORTED_IMPLIB_RELEASE "${_cpython_prefix}/lib/python315t.lib"
+        IMPORTED_LOCATION_DEBUG "${_cpython_prefix}/debug/bin/python315t_d.dll"
+        IMPORTED_IMPLIB_DEBUG "${_cpython_prefix}/debug/lib/python315t_d.lib"
+    )
+else()
+    set_target_properties(CPython::Python PROPERTIES
+        IMPORTED_LOCATION_RELEASE "${_cpython_prefix}/lib/libpython3.15t.so.1.0"
+        IMPORTED_LOCATION_DEBUG "${_cpython_prefix}/debug/lib/libpython3.15td.so.1.0"
+    )
+endif()
+unset(_cpython_prefix)

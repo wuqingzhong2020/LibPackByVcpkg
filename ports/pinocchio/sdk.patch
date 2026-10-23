@@ -1,0 +1,39 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index dc95c6f..f7e01c0 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -765,7 +765,9 @@ endif()
+ add_subdirectory(utils)
+ 
+ # --- UNIT TESTS ---------------------------------------------------------------
+-add_subdirectory(unittest)
++if(BUILD_TESTING)
++    add_subdirectory(unittest)
++endif()
+ 
+ # --- CHECK EXAMPLES -----------------------------------------------------------
+ if(BUILD_EXAMPLES)
+diff --git a/include/pinocchio/src/macros.hxx b/include/pinocchio/src/macros.hxx
+index 9d916d6..d47e33a 100644
+--- a/include/pinocchio/src/macros.hxx
++++ b/include/pinocchio/src/macros.hxx
+@@ -301,5 +301,18 @@ PINOCCHIO_COMPILER_DIAGNOSTIC_POP
+     #define PINOCCHIO_UNREACHABLE()
+   #endif
+ #else
+-  #define PINOCCHIO_UNREACHABLE() assert(false && "must never happened")
++  #if defined(_MSC_VER)
++    // MSVC does not treat assert(false) as a no-return expression in Debug
++    // builds, which triggers C4716 in functions returning a value. Keep the
++    // diagnostic assertion and explicitly describe the unreachable control
++    // flow to the compiler.
++    #define PINOCCHIO_UNREACHABLE()                                                           \
++      do                                                                                      \
++      {                                                                                       \
++        assert(false && "must never happened");                                               \
++        __assume(0);                                                                          \
++      } while (false)
++  #else
++    #define PINOCCHIO_UNREACHABLE() assert(false && "must never happened")
++  #endif
+ #endif
