@@ -41,11 +41,18 @@ Qt、OpenCV、VTK、OCCT 优先共用 zlib、图像库、FreeType、TBB 等公�
 | 库或组合 | 当前功能选择 |
 | --- | --- |
 | Ceres | 启用 `schur`，不启用 SuiteSparse、METIS、LAPACK、CUDA |
+| Qt Base（两端共用） | Widgets/OpenGL 界面、Concurrent、Network/OpenSSL、SQLite；显式启用 `async-io`、`brotli`、`dnslookup`、`icu`、`pcre2`、`sessionmanager`、`testlib`、`zstd`，保留 FreeType、HarfBuzz、JPEG、PNG |
+| Qt Base（Windows） | 增加 `windeployqt`，用于收集应用部署依赖 |
+| Qt Base（Linux） | `fontconfig` 匹配字体，`xcb` 提供 X11 窗口；`xcb-xlib`、`egl` 分别提供 XCB 的 GLX、EGL 集成路径，`xcb-sm` 接入 X11 会话管理 |
 | CCCoreLib | oneTBB 并行、float 标量，关闭 Qt Concurrent 和 CGAL |
 | Coal / Pinocchio | Coal 保留 Qhull、Assimp、OctoMap；Pinocchio 保留运动学、动力学、Coal 碰撞和 URDF 建模，使用公共 URDFDOM；两者关闭 Python 绑定 |
 | IfcOpenShell | OCCT 几何后端、IFC2X3 / IFC4 / IFC4X3_ADD2、C++ SDK 与 `IfcConvert`，关闭 CGAL 和 Python |
 | CGAL | 仅安装经审核、符合商用闭源分发要求的模块与头文件子集，不限于 LGPL；排除 GPL 模块及依赖它们的头文件，范围见 [许可说明](docs/licensing.md) 与 [port 说明](docs/custom-ports.md#cgal) |
 | 编辑器与脚本 | Scintilla / Lexilla / Scintillua 共用 Qt6、Lua、LPeg；独立 Tcl/Tk 与 CPython 分别提供运行环境，CPython 不启用 tkinter |
+
+Qt Base 的三处依赖声明均关闭默认 features，按平台合并；`thread`、`future`、`doubleconversion`、`sql` 由依赖关系自动引入。当前不启用 `dbus`、`ioring`、`vulkan`、`sql-psql`、`xrender` 和原生 `wayland`。`dnslookup` 提供 `QDnsLookup` 的专用 DNS 记录查询；`testlib` 提供 Qt Test 库，不代表构建 Qt 自身的全部测试。
+
+Linux 不能只凭 `opengl`、`xcb` 判断 Qt OpenGL 窗口后端完整：固定 Qt 6.11.2 的 XCB/GLX 插件依赖 `xcb-xlib`，XCB/EGL 插件依赖 `egl`。会话保存/恢复需要桌面支持并由应用处理回调；Wayland 桌面依靠 XWayland 运行，增加 `egl` 不会启用原生 Wayland。相关依据见 [Qt 配置源码](https://github.com/qt/qtbase/blob/v6.11.2/src/gui/configure.cmake)。本次 feature 调整已通过 Windows Release、Debug 构建及消费验证，Linux 配置尚未编译验证。
 
 Windows 与 Ubuntu 共用源码和清单，分别使用各自的编译器、安装树和运行资源。Qt、VTK 的宿主工具与对应库版本配套；启动 `build.py` 的宿主 Python 独立于 SDK 内的 Python。库的源码获取、依赖排序和编译由 vcpkg 管理，`build.py` 负责读取配置、组织命令及调用验证和许可收集。
 
@@ -167,7 +174,7 @@ Windows 和 Linux 的例外分别配置，只作用于对应 port，不会连带
 | `assimp` 6.0.5 | Windows x64 / vc143（MSVC 19.44） | C++17 | IFC 导入器 `IFCLoader.cpp` 的 `STEP::operator==` 在 C++20 反向比较候选下出现重载歧义（C2666）。保留官方 port，配置 `assimp=cpp17`；Debug、Release 编译及 vcpkg 安装检查均通过。Ubuntu/GCC 尚未验证，不据此回退。 |
 | `vtk` 9.3.0-pv5.12.1#18 | Windows x64 / vc143（MSVC 19.44） | C++17 | 内置 DIY2 的 `chobo/small_vector.hpp` 使用 C++20 已移除的 `std::allocator::reference`、`pointer` 等成员，产生 C2039 等错误。保留官方 port，配置 `vtk=cpp17`；Debug、Release 编译及 vcpkg 安装检查均通过。Ubuntu/GCC 尚未验证，不据此回退。 |
 
-按 port 生成的标准例外文件只计入对应库的构建标识，调整一个例外时重编该库及受影响的依赖者。修改首选标准或公共标准脚本会影响所有相关库。fmt 继续使用 C++20，通过独立脚本关闭额外的模块库；这是构建选项修正，不属于标准回退，见 [ports 与兼容脚本说明](docs/custom-ports.md#fmt官方-port)。改变工具路径但沿用相同标签时，已有 CMake 消费缓存可能不再适用，建议同时指定新的 `BUILD_DIR`。
+按 port 生成的标准例外文件只计入对应库的构建标识，调整一个例外时重编该库及受影响的依赖者。修改首选标准或公共标准脚本会影响所有相关库。fmt 继续使用 C++20，通过独立脚本关闭额外的模块库；这是构建选项修正，不属于标准回退，见 [ports 与兼容脚本说明](docs/custom-ports.md#fmt官方-port)。ICU 的 Windows Makefile 会追加 C++17，本仓库通过 [逐 port 编译命令修正](docs/custom-ports.md#icu官方-port) 落实 INI 选择的标准，同样保留官方 port。改变工具路径但沿用相同标签时，已有 CMake 消费缓存可能不再适用，建议同时指定新的 `BUILD_DIR`。
 
 ## 命令
 
@@ -262,6 +269,8 @@ python build.py build --port tbb --rebuild
 
 CPython 用例只依赖 `CPython::Python`，适用于 Ubuntu 当前的单库验证。其他 port 暂不支持 `verify --port`；需要运行验证时使用完整消费测试或库自带程序。单库消费工程与报告分别保存在 `BUILD_DIR/consumer-python3/`、`BUILD_DIR/reports/verify-python3.json`。
 
+完整验证中的 `qt_features` 用例检查 Unicode 数字排序、PCRE2、zstd 资源、DNS TXT、Brotli HTTP 解压和 Qt Test。网络用例使用本机服务；Windows 的 DNS API 不支持替代端口，因此测试需占用空闲的回环 UDP 53 端口，其他平台使用临时端口。
+
 ### 库版本与升级
 
 `vcpkg.json` 的 `overrides` 固定直接使用的官方库版本，包含配方修订号 `port-version`（省略时为 0）；Qt 官方模块不单独约束版本，随 baseline 和依赖解析；Boost 完整包入口固定为 1.92.0，组件版本与 baseline 配套评估。本地 overlay 的当前版本标在依赖的 `$comment` 中，实际版本和源码由 `ports/<库名>/vcpkg.json` 与 `portfile.cmake` 控制；overlay 不受 registry 版本约束。
@@ -355,5 +364,7 @@ CPython 复用 vcpkg 的九个公共动态库：libffi、mpdecimal、zlib、Open
 先验证 Windows，再用同一份清单在 Ubuntu 原生构建和运行；一端成功不能代表另一端成功。搬迁后的 SDK 另用 `verify --installed-root` 验证。中文与空格路径、无显示环境和具体业务用例也按实际覆盖范围判断，不由基础消费测试推断全部兼容。
 
 2026-10-26：CPython 3.15.0#1 已在 Windows x64 / MSVC 19.44 和 WSL Ubuntu 26.04.1 / GCC 16.2.0 上通过 Release、Debug 源码构建、严格安装检查及独立消费用例。每种配置均通过解释器与 C++ 嵌入测试，确认九个公共库的实际加载来源、自由线程扩展及 Tk/Readline 禁用状态；两平台搬迁到含中文和空格的目录后，也均通过 Release、Debug 消费用例。Ubuntu 安装范围为 CPython、九个 C 库及四个构建辅助包，共 14 包；本记录不代表完整 Ubuntu SDK 已验证。
+
+2026-10-26：Qt 6.11.2 功能调整已在 Windows x64 / MSVC 19.44 完成增量构建与严格安装检查，新增 ICU 78.3#2，重建 12 个受影响的 Qt 及第三方包。ICU Release、Debug 各 519 条 C++ 编译命令均确认使用 C++20；完整 SDK 消费用例在两种配置下各 27 项通过。重新执行安装计划无需重建，269 个已安装包的许可材料已收集。本记录不包含 Ubuntu Qt 构建验证。
 
 产品交付按实际运行依赖保留所需 DLL/共享库、插件、脚本、资源和许可材料；SDK 中的开发工具不等于应用运行依赖。`licenses` 收集对应安装树的材料，具体分发条件统一见 [许可说明](docs/licensing.md)。

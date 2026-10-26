@@ -33,9 +33,18 @@ vtk_module_autoinit(TARGETS vision MODULES VTK::CommonCore VTK::CommonDataModel 
 sdk_test(surfaces ${PCL_LIBRARIES})
 target_include_directories(surfaces PRIVATE ${PCL_INCLUDE_DIRS})
 
-find_package(Qt6 CONFIG REQUIRED COMPONENTS Core Gui Widgets Svg SerialPort SerialBus Sql Network Concurrent)
+find_package(Qt6 CONFIG REQUIRED COMPONENTS Core Gui Widgets Svg SerialPort SerialBus Sql Network Concurrent Test)
 find_package(qtadvanceddocking-qt6 CONFIG REQUIRED)
 sdk_test(qt Qt6::Widgets Qt6::Svg Qt6::SerialPort Qt6::SerialBus Qt6::Sql Qt6::Network Qt6::Concurrent ads::qtadvanceddocking-qt6)
+sdk_test(qt_features Qt6::Core Qt6::Network Qt6::Test)
+# Exercise the installed rcc and Qt's zstd resource reader together.
+string(REPEAT "Qt zstd resource verification\n" 64 SDK_QT_ZSTD_TEXT)
+file(CONFIGURE OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/qt-zstd.txt"
+    CONTENT "${SDK_QT_ZSTD_TEXT}" @ONLY NEWLINE_STYLE UNIX)
+qt_add_resources(qt_features sdk_qt_zstd
+    PREFIX "/sdk" BASE "${CMAKE_CURRENT_BINARY_DIR}"
+    FILES "${CMAKE_CURRENT_BINARY_DIR}/qt-zstd.txt"
+    OPTIONS --compress-algo zstd --compress 3 --threshold 0)
 
 find_package(Lua REQUIRED)
 find_package(sol2 CONFIG REQUIRED)

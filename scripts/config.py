@@ -147,12 +147,22 @@ def write_triplet(config: BuildConfig) -> Path:
     # 每个例外单独计入对应 port 的 ABI，调整一个库不再改变整份 triplet。
     standards = folder / "cxx-standards"
     standards.mkdir(exist_ok=True)
+    # 非 CMake port 的标准修正也经已有的逐 port 文件加载，避免改动公共 triplet
+    # 导致整个 SDK 的 ABI 变化。ICU 的 MSVC Makefile 会追加固定 C++17。
+    standard_fixes = ({"icu": Path(__file__).resolve().parent / "port-fixes/icu-cxx-standard.cmake"}
+                      if config.system == "Windows" else {})
+    configured_ports = config.cpp_standard_overrides.keys() | standard_fixes.keys()
     for path in standards.glob("*.cmake"):
-        if path.stem not in config.cpp_standard_overrides:
+        if path.stem not in configured_ports:
             path.unlink()
-    for port, standard in config.cpp_standard_overrides.items():
-        (standards / f"{port}.cmake").write_text(
-            cmake_setting("SDK_CXX_STANDARD", standard[3:]), encoding="utf-8")
+    for port in sorted(configured_ports):
+        standard = config.cpp_standard_overrides.get(port, config.cpp_standard)
+        contents = cmake_setting("SDK_CXX_STANDARD", standard[3:])
+        if port in standard_fixes:
+            contents += cmake_setting("SDK_PORT_STANDARD_FIX", standard_fixes[port])
+            contents += ('list(APPEND VCPKG_HASH_ADDITIONAL_FILES "${SDK_PORT_STANDARD_FIX}")\n'
+                         'include("${SDK_PORT_STANDARD_FIX}")\n')
+        (standards / f"{port}.cmake").write_text(contents, encoding="utf-8")
     triplet = "# Generated from config.ini; edit the INI, not this file.\n"
     triplet += cmake_setting("VCPKG_TARGET_ARCHITECTURE", "x64")
     triplet += cmake_setting("VCPKG_CRT_LINKAGE", "dynamic")

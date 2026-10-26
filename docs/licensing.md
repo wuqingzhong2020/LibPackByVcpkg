@@ -34,6 +34,22 @@ CPython 本体按 PSF/Python 历史许可及随包第三方条款分发，保留
 
 依据：[CPython 3.15.0 LICENSE](https://github.com/python/cpython/blob/v3.15.0/LICENSE)、[libffi 3.8.0 LICENSE](https://github.com/libffi/libffi/blob/v3.8.0/LICENSE)、[zlib 许可](https://www.zlib.net/zlib_license.html)、[OpenSSL 3.x 许可](https://openssl-library.org/source/license/)、[SQLite 官方说明](https://sqlite.org/copyright.html)、[zstd 1.5.7 LICENSE](https://github.com/facebook/zstd/blob/v1.5.7/LICENSE)、[XZ 5.8.4 组件划分](https://github.com/tukaani-project/xz/blob/v5.8.4/COPYING)、[Expat 2.9.0 COPYING](https://github.com/libexpat/libexpat/blob/R_2_9_0/expat/COPYING)。mpdecimal 与 bzip2 同时核对固定下载归档中的 LICENSE；升级或增加 features 后重新审核。
 
+## Qt Base 功能调整的许可范围
+
+2026-10-26 按固定 baseline 的 Qt 6.11.2 配方核对新增功能，Windows Release、Debug 已完成构建、严格安装检查及消费验证。269 个实际安装包的许可与来源材料已收集到 `BUILD_DIR/reports/licenses/`；具体应用发布时仍须按实际部署文件核对依赖及许可范围。Ubuntu Qt 配置尚未构建验证。
+
+| 组件 | 采用的许可证与范围 |
+| --- | --- |
+| Brotli 1.2.0 | MIT；保留版权和许可原文，供 Qt Network 的 Brotli 解压功能使用 |
+| ICU 78.3 | 根 LICENSE 为 Unicode-3.0，并包含历史 ICU、数据及其他第三方声明；完整保留这些宽松许可材料，不只摘录首段或沿用 port 的简写 `ICU` |
+| zstd 1.5.7 | 延续上表的 BSD-3-Clause 分支；Qt 复用公共依赖 |
+| Qt Test、会话管理及其他所选 Qt Base 运行功能 | 采用 LGPL-3.0 分支，沿用共享库分发义务并保留内嵌第三方许可；Qt Test 的附属材料已包含在 `licenses/qtbase/` 中 |
+| `windeployqt` | 工具源码为 GPL-3.0-only WITH Qt-GPL-exception-1.0；作为开发阶段的部署工具使用，不链接进业务程序、不作为应用运行依赖。单独分发该工具或包含它的 SDK 时，仍须履行工具本身的许可、对应源码等义务 |
+
+Linux 新增的 `egl` port 在该平台包装系统 EGL；X11 的 GLX、会话管理接口依赖系统开发包和运行库。若产品自行打包这些系统库，须按实际实现与版本补齐许可材料。当前不启用 D-Bus、io_uring、Vulkan 或 PostgreSQL 驱动。
+
+依据：[Brotli 1.2.0 LICENSE](https://github.com/google/brotli/blob/v1.2.0/LICENSE)、[ICU 78.3 完整 LICENSE](https://github.com/unicode-org/icu/blob/release-78.3/LICENSE)、[Qt Test 6.11.2 源码许可](https://github.com/qt/qtbase/blob/v6.11.2/src/testlib/qtestcase.cpp)、[windeployqt 6.11.2 源码许可](https://github.com/qt/qtbase/blob/v6.11.2/src/tools/windeployqt/main.cpp)。
+
 ## 其他模块与许可材料
 
 已核对固定 Qt 6.11.2 源码：SerialPort、SerialBus 的运行源码及 CAN 插件、SVG、ImageFormats 的相应 Qt 源文件均有 LGPL 分支。SerialBus 的 `src/tools/canbusutil` 则是 GPL-3.0 WITH Qt-GPL-exception；Qt Tools 中 Linguist 和 Designer 的工具实现也包含该分支。原生 `qttools[linguist]` 会引入 `designer` feature，因此开发 SDK 可以保留这些工具，但应用部署不能把整个 `bin` 或 `tools` 目录当成已批准的运行闭包。尤其不要将 Designer 的组件库直接链接进业务程序。验证程序只消费所列运行模块，不使用 Designer 组件；完整源码扫描记录保存在构建报告 `qt-module-source-licenses.json`，第三方内嵌代码仍以随包原文为准。

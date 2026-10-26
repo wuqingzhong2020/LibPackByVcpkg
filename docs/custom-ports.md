@@ -2,7 +2,7 @@
 
 本仓库优先使用 vcpkg 官方配方。小范围的安装兼容处理放在 `scripts/port-fixes/`，不复制官方 port。`ports/` 只放确需自定义的部分，由根目录 `vcpkg-configuration.json` 注册为 overlay。
 
-以下以固定 baseline `a073c28e52d920cb2465a17512324b3b6684d03a` 为比较对象。目前有 13 个自定义 ports；`at-spi2-core`、`ompl`、`vtk`、`fmt` 均使用官方 port。前三项的兼容处理仅在 Linux 加载，fmt 的选项处理用于两平台。
+以下以固定 baseline `a073c28e52d920cb2465a17512324b3b6684d03a` 为比较对象。目前有 13 个自定义 ports；`at-spi2-core`、`ompl`、`vtk`、`fmt`、`icu` 均使用官方 port。前三项的兼容处理仅在 Linux 加载，fmt 的选项处理用于两平台，ICU 的标准修正仅用于 Windows。
 
 | Port | 版本 | 保留本地配方的主要原因 |
 | --- | --- | --- |
@@ -39,6 +39,16 @@
 **为什么：** 上游检测到 C++20 和较新 CMake 时默认启用模块库，Windows 共享构建生成无导出符号的 `fmt-module.dll`，无法通过严格安装检查。本项目使用普通头文件和 `fmt::fmt`，关闭额外模块即可保留 C++20，无需复制 port 或降低标准。脚本仅计入 fmt 的 ABI，严格检查照常执行。
 
 实现：[fmt 选项脚本](../scripts/port-fixes/fmt.cmake)、[triplet 生成](../scripts/config.py)。
+
+## icu（官方 port）
+
+**做了什么：** 保留官方 ICU 78.3#2 配方。Windows 通过 `VCPKG_MAKE_OPTIONS` 覆盖 GNU Make 的 `COMPILE.cc`，保留原有 CRT、优化、调试和 include 选项，过滤旧的 C++ 标准参数后使用 INI 选择的标准。修正从已有的逐 port 标准文件加载，只计入 ICU 的 ABI；不修改公共 triplet 文本、上游源码或外部 vcpkg 配方。
+
+**为什么：** ICU 的 `mh-msys-msvc` 在 `CXXFLAGS` 末尾追加 `-std:c++17`，会覆盖项目先传入的 C++20。此修正用于落实首选标准，不属于因源码不兼容而回退 C++17；Linux 不应用这段 MSVC 专用处理。
+
+Windows/vc143 的 Release、Debug 已按 C++20 编译并通过 vcpkg 安装检查；两种配置各核对 519 条实际 C++ 编译命令，分别保留 `/MD`、`/MDd`。ICU 没有加入 C++17 回退清单。
+
+实现：[ICU 标准脚本](../scripts/port-fixes/icu-cxx-standard.cmake)、[逐 port 配置生成](../scripts/config.py)。
 
 ## cccorelib
 

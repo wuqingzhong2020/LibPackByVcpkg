@@ -82,26 +82,46 @@
       "name": "qtbase",
       "default-features": false,
       "features": [
+        "async-io",
+        "brotli",
         "concurrent",
+        "dnslookup",
         "freetype",
         "gui",
         "harfbuzz",
+        "icu",
         "jpeg",
         "network",
         "opengl",
         "openssl",
+        "pcre2",
         "png",
+        "sessionmanager",
         "sql-sqlite",
-        "widgets"
+        "testlib",
+        "widgets",
+        "zstd"
       ]
     },
     {
       "name": "qtbase",
-      "$comment": "两端共用上面的 Qt 功能模块。Windows 使用系统原生字体接口（默认 DirectWrite），Linux 使用 Fontconfig 查找、匹配字体；xcb 提供 X11 窗口后端，并自动包含 xkbcommon-x11。",
+      "$comment": "Windows 部署工具；不作为业务程序运行依赖。",
       "default-features": false,
       "features": [
+        "windeployqt"
+      ],
+      "platform": "windows"
+    },
+    {
+      "name": "qtbase",
+      "$comment": "Linux 使用 Fontconfig 和 X11/XWayland；xcb-xlib、egl 分别补齐 XCB 的 GLX、EGL 路径，xcb-sm 接入 X11 会话管理。Windows 使用原生字体与窗口接口。",
+      "default-features": false,
+      "features": [
+        "egl",
         "fontconfig",
-        "xcb"
+        "xcb",
+        "xcb-sm",
+        "xcb-xlib"
       ],
       "platform": "linux"
     },
