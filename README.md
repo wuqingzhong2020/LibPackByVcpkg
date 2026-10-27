@@ -52,7 +52,7 @@ Qt、OpenCV、VTK、OCCT 优先共用 zlib、图像库、FreeType、TBB 等公�
 
 Qt Base 的三处依赖声明均关闭默认 features，按平台合并；`thread`、`future`、`doubleconversion`、`sql` 由依赖关系自动引入。当前不启用 `dbus`、`ioring`、`vulkan`、`sql-psql`、`xrender` 和原生 `wayland`。`dnslookup` 提供 `QDnsLookup` 的专用 DNS 记录查询；`testlib` 提供 Qt Test 库，不代表构建 Qt 自身的全部测试。
 
-Linux 不能只凭 `opengl`、`xcb` 判断 Qt OpenGL 窗口后端完整：固定 Qt 6.11.2 的 XCB/GLX 插件依赖 `xcb-xlib`，XCB/EGL 插件依赖 `egl`。会话保存/恢复需要桌面支持并由应用处理回调；Wayland 桌面依靠 XWayland 运行，增加 `egl` 不会启用原生 Wayland。相关依据见 [Qt 配置源码](https://github.com/qt/qtbase/blob/v6.11.2/src/gui/configure.cmake)。本次 feature 调整已通过 Windows Release、Debug 构建及消费验证，Linux 配置尚未编译验证。
+Linux 不能只凭 `opengl`、`xcb` 判断 Qt OpenGL 窗口后端完整：固定 Qt 6.11.2 的 XCB/GLX 插件依赖 `xcb-xlib`，XCB/EGL 插件依赖 `egl`。会话保存/恢复需要桌面支持并由应用处理回调；Wayland 桌面依靠 XWayland 运行，增加 `egl` 不会启用原生 Wayland。相关依据见 [Qt 配置源码](https://github.com/qt/qtbase/blob/v6.11.2/src/gui/configure.cmake)。本次 feature 调整已通过 Windows、Ubuntu 的 Release、Debug 构建及消费验证；Linux 的 XCB/GLX、XCB/EGL 配置均已确认启用，Qt 消费程序也已在 WSLg 的 XCB 后端运行通过。该用例未创建 OpenGL 上下文，不代表全部图形驱动或渲染场景已经验证。
 
 Windows 与 Ubuntu 共用源码和清单，分别使用各自的编译器、安装树和运行资源。Qt、VTK 的宿主工具与对应库版本配套；启动 `build.py` 的宿主 Python 独立于 SDK 内的 Python。库的源码获取、依赖排序和编译由 vcpkg 管理，`build.py` 负责读取配置、组织命令及调用验证和许可收集。
 
@@ -95,13 +95,14 @@ Windows 消费测试当前使用 Visual Studio 生成器；脚本会把 `VS_PATH
 [env_linux]
 TOOLCHAIN = gcc16
 CPP_STANDARD = cpp20
+CPP_STANDARD_OVERRIDES = assimp=cpp17, vtk=cpp17
 VCPKG_ROOT = /home/zjgg/app/vcpkg
 GCC_EXE = /home/zjgg/app/gcc16.02/bin/gcc-16
 GXX_EXE = /home/zjgg/app/gcc16.02/bin/g++-16
 CMAKE_EXE = /usr/bin/cmake
 CMAKE_GENERATOR = Ninja
 LD_LIBRARY_PATH = /home/zjgg/app/gcc16.02/lib64:/home/zjgg/app/gcc16.02/lib
-JOBS = 12
+JOBS = 4
 BUILD_DIR =
 OUTPUT_DIR =
 DOWNLOAD_DIR =
@@ -112,6 +113,8 @@ BINARY_CACHE_DIR =
 
 WSL 使用 Linux 版 Python、CMake、Ninja 和独立的 Linux vcpkg checkout。vcpkg 路径应填写自己的实际安装位置。还需要常规 Linux 构建工具和各 port 要求的开发包；GUI 消费测试需要可用的显示/OpenGL 环境。
 
+本机 WSL 可用内存约 32 GiB，Pinocchio 的 12 路模板实例化会造成内存压力，示例采用 `JOBS = 4`；可根据实际内存调整，也可通过统一命令的 `--jobs` 临时覆盖。
+
 ### Ubuntu 26.04.1 环境准备
 
 先准备配置中指定的 GCC/G++，再安装构建工具及清单所需的系统开发包：
@@ -119,8 +122,10 @@ WSL 使用 Linux 版 Python、CMake、Ninja 和独立的 Linux vcpkg checkout。
 ```bash
 sudo apt-get update
 sudo apt-get install -y git python3 cmake ninja-build make pkg-config curl zip unzip \
-    autoconf autoconf-archive automake libtool bison perl libc6-dev linux-libc-dev \
-    libxi-dev libxtst-dev libxrandr-dev libglu1-mesa-dev
+    autoconf autoconf-archive automake libtool bison flex nasm gperf patchelf perl libc6-dev linux-libc-dev \
+    libxi-dev libxt-dev libxtst-dev libxrandr-dev libxcursor-dev libxinerama-dev libglu1-mesa-dev \
+    '^libxcb.*-dev' libx11-xcb-dev libxrender-dev libxkbcommon-dev libxkbcommon-x11-dev \
+    libegl-dev libsm-dev libice-dev
 ```
 
 从官方仓库克隆 Linux 版 vcpkg，切到 `vcpkg-configuration.json` 中的 baseline，执行 `bootstrap-vcpkg.sh -disableMetrics`，再把实际目录填入 `VCPKG_ROOT`。上述列表是基础工具，部分 ports 还需要额外开发包。
@@ -154,6 +159,8 @@ DOWNLOAD_DIR = /home/zjgg/sdk-work/downloads_${TOOLCHAIN}_${CPP_STANDARD}
 
 `CPP_STANDARD` 支持 `cpp20`、`cpp23`、`cpp26`，决定目录后缀、第三方库首选编译标准和消费测试标准。默认优先使用 C++20：Windows/vc143 传入 `/std:c++20`，Ubuntu/GCC 传入 `-std=c++20`，不依赖编译器默认值。C 库的 C 编译参数不受影响。
 
+Linux 的 Qt Base 单独使用同级别的 GNU 扩展模式（当前为 `-std=gnu++20`）：Qt 6.11.2 的 128 位整数实现要求 libstdc++ 提供扩展类型支持，严格 `-std=c++20` 会触发其编译检查。此修正保留 C++20 和 int128，不属于标准回退，见 [Qt Base 兼容脚本](docs/custom-ports.md#qtbase官方-port)。其他库及消费测试继续按各自标准配置。
+
 CMake ports 同时收到标准配置，并通过公共 [标准脚本](scripts/cmake/cxx-standard.cmake) 在配置结束时把较低的 target 标准提高到所选值，保留上游要求的更高标准。其他构建系统通过 vcpkg 的 C++ flags 接收设置；若上游使用独立编译命令覆盖这些 flags，后续验证时需检查实际命令并单独处理。MSVC 的 `cpp23`/`cpp26` 通用 flags 使用 `/std:c++latest`，CMake 项目仍按指定数值检查工具链支持。
 
 只有确认官方 port 不兼容首选标准时，才在当前平台配置节的 `CPP_STANDARD_OVERRIDES` 中填入它支持的最高较低标准；优先保留官方 port，不为改变标准复制 port。以下为填写格式，已验证的实际例外见下面的回退记录：
@@ -171,8 +178,10 @@ Windows 和 Linux 的例外分别配置，只作用于对应 port，不会连带
 
 | port / 版本 | 平台与编译器 | 实际编译标准 | C++20 失败原因及验证范围 |
 | --- | --- | --- | --- |
-| `assimp` 6.0.5 | Windows x64 / vc143（MSVC 19.44） | C++17 | IFC 导入器 `IFCLoader.cpp` 的 `STEP::operator==` 在 C++20 反向比较候选下出现重载歧义（C2666）。保留官方 port，配置 `assimp=cpp17`；Debug、Release 编译及 vcpkg 安装检查均通过。Ubuntu/GCC 尚未验证，不据此回退。 |
-| `vtk` 9.3.0-pv5.12.1#18 | Windows x64 / vc143（MSVC 19.44） | C++17 | 内置 DIY2 的 `chobo/small_vector.hpp` 使用 C++20 已移除的 `std::allocator::reference`、`pointer` 等成员，产生 C2039 等错误。保留官方 port，配置 `vtk=cpp17`；Debug、Release 编译及 vcpkg 安装检查均通过。Ubuntu/GCC 尚未验证，不据此回退。 |
+| `assimp` 6.0.5 | Windows x64 / vc143（MSVC 19.44） | C++17 | IFC 导入器 `IFCLoader.cpp` 的 `STEP::operator==` 在 C++20 反向比较候选下出现重载歧义（C2666）。保留官方 port，配置 `assimp=cpp17`；Debug、Release 编译及 vcpkg 安装检查均通过。 |
+| `assimp` 6.0.5 | Ubuntu 26.04.1 x64 / GCC 16.2.0 | C++17 | 实际 C++20 构建在 `IFCLoader.cpp:355` 的 `UnitsInContext == nullptr` 出现 `operator==` 重载歧义。Linux 单独配置 `assimp=cpp17`，保留官方 port；Debug、Release 编译及严格安装检查均通过。 |
+| `vtk` 9.3.0-pv5.12.1#18 | Windows x64 / vc143（MSVC 19.44） | C++17 | 内置 DIY2 的 `chobo/small_vector.hpp` 使用 C++20 已移除的 `std::allocator::reference`、`pointer` 等成员，产生 C2039 等错误。保留官方 port，配置 `vtk=cpp17`；Debug、Release 编译及 vcpkg 安装检查均通过。 |
+| `vtk` 9.3.0-pv5.12.1#18 | Ubuntu 26.04.1 x64 / GCC 16.2.0 | C++17 | 定向编译内置 DIY2 的 `small_vector<int, 4>`：C++20 下缺少 allocator 的 `reference`、`const_reference`、`pointer` 等成员，C++17 通过。Linux 单独配置 `vtk=cpp17`，保留官方 port；完整 Debug、Release 构建及严格安装检查均通过。 |
 
 按 port 生成的标准例外文件只计入对应库的构建标识，调整一个例外时重编该库及受影响的依赖者。修改首选标准或公共标准脚本会影响所有相关库。fmt 继续使用 C++20，通过独立脚本关闭额外的模块库；这是构建选项修正，不属于标准回退，见 [ports 与兼容脚本说明](docs/custom-ports.md#fmt官方-port)。ICU 的 Windows Makefile 会追加 C++17，本仓库通过 [逐 port 编译命令修正](docs/custom-ports.md#icu官方-port) 落实 INI 选择的标准，同样保留官方 port。改变工具路径但沿用相同标签时，已有 CMake 消费缓存可能不再适用，建议同时指定新的 `BUILD_DIR`。
 
@@ -214,7 +223,7 @@ python build.py plan --manifest vcpkg2.json
 python build.py build --manifest vcpkg2.json --from-source
 ```
 
-该清单选择自定义 `python3` 3.15.0 自由线程共享库及九个必要公共 C 库；模块范围见 [CPython 配方说明](docs/custom-ports.md#python3)。Ubuntu 当前仅构建和验证这份清单，不编译完整 SDK 的其他库。
+该清单用于单独构建和验证自定义 `python3` 3.15.0 自由线程共享库及九个必要公共 C 库；模块范围见 [CPython 配方说明](docs/custom-ports.md#python3)。完整 SDK 使用主清单 `vcpkg.json`，单独验证 CPython 时可选择这份精简清单。
 
 可以复制清单为 `vcpkg.my-sdk.json` 等文件，分别修改 `dependencies`、`features`、`default-features` 和 `overrides`，再通过 `--manifest` 选择。文件须位于仓库内，参数中的相对路径以仓库根目录为基准；各清单共用根目录 `vcpkg-configuration.json` 的 baseline 与本仓库 overlay ports。
 
@@ -267,7 +276,7 @@ python build.py build --port tbb --rebuild
 | 完整 SDK | `python build.py verify --config both` | 现有几何、点云、Qt、脚本嵌入与扩展等消费用例 |
 | CPython | `python build.py verify --port python3 --config both` | 解释器、C++ 嵌入、自由线程扩展、九个公共 C 库及其实际加载路径、Tk/Readline 禁用检查 |
 
-CPython 用例只依赖 `CPython::Python`，适用于 Ubuntu 当前的单库验证。其他 port 暂不支持 `verify --port`；需要运行验证时使用完整消费测试或库自带程序。单库消费工程与报告分别保存在 `BUILD_DIR/consumer-python3/`、`BUILD_DIR/reports/verify-python3.json`。
+CPython 用例只依赖 `CPython::Python`，适用于只验证 CPython 的场景。其他 port 暂不支持 `verify --port`；需要运行验证时使用完整消费测试或库自带程序。单库消费工程与报告分别保存在 `BUILD_DIR/consumer-python3/`、`BUILD_DIR/reports/verify-python3.json`。
 
 完整验证中的 `qt_features` 用例检查 Unicode 数字排序、PCRE2、zstd 资源、DNS TXT、Brotli HTTP 解压和 Qt Test。网络用例使用本机服务；Windows 的 DNS API 不支持替代端口，因此测试需占用空闲的回环 UDP 53 端口，其他平台使用临时端口。
 
@@ -328,7 +337,7 @@ python -B -m unittest discover -s tests -p test_config.py -v
 
 本仓库包含完整构建源码，使用宿主 Python 3.10+、Git、CMake、平台构建工具和指定的 vcpkg checkout。克隆仓库后填写本机 `config.ini` 即可使用。外部 vcpkg checkout 提供工具与官方 registry；项目的补丁和兼容处理保存在本仓库内。
 
-SDK 默认使用动态库，Windows 使用动态 CRT（Release `/MD`、Debug `/MDd`）；原生仅支持静态的宽松许可库保留静态。Release DLL 和库在 `bin/`、`lib/`，Debug 在 `debug/bin/`、`debug/lib/`；Linux 共享库在对应的 `lib/` 中。部署或搬迁 SDK 时整体保留安装树结构，包括 Qt 插件、Python/Tcl/Tk 脚本、OCCT 资源及 vcpkg 元数据。
+SDK 默认使用动态库，Windows 使用动态 CRT（Release `/MD`、Debug `/MDd`）；少数原生静态依赖逐项审核。Linux 附带的 `libuuid` 归档含 LGPL 代码，不列入可仅按宽松许可直接静态链接到业务程序的白名单，具体范围见 [许可说明](docs/licensing.md#linux-系统接口与构建工具)。Release DLL 和库在 `bin/`、`lib/`，Debug 在 `debug/bin/`、`debug/lib/`；Linux 共享库在对应的 `lib/` 中。部署或搬迁 SDK 时整体保留安装树结构，包括 Qt 插件、Python/Tcl/Tk 脚本、OCCT 资源及 vcpkg 元数据。
 
 新 CMake 项目使用外部 vcpkg 的 `scripts/buildsystems/vcpkg.cmake`，指定相同 triplet、生成的 overlay-triplets 和 `VCPKG_INSTALLED_DIR`，关闭 `VCPKG_MANIFEST_INSTALL` 后通过 `find_package` 和导出 targets 消费 SDK。`tests/` 是使用参考。消费测试负责各配置的 DLL、Qt 插件、Python/Tcl 资源搜索路径；pybind11 连接 Debug Python 的目标还需要定义 `Py_DEBUG`，示例见 [消费测试](tests/native/CMakeLists.txt)。
 
@@ -366,5 +375,7 @@ CPython 复用 vcpkg 的九个公共动态库：libffi、mpdecimal、zlib、Open
 2026-10-26：CPython 3.15.0#1 已在 Windows x64 / MSVC 19.44 和 WSL Ubuntu 26.04.1 / GCC 16.2.0 上通过 Release、Debug 源码构建、严格安装检查及独立消费用例。每种配置均通过解释器与 C++ 嵌入测试，确认九个公共库的实际加载来源、自由线程扩展及 Tk/Readline 禁用状态；两平台搬迁到含中文和空格的目录后，也均通过 Release、Debug 消费用例。Ubuntu 安装范围为 CPython、九个 C 库及四个构建辅助包，共 14 包；本记录不代表完整 Ubuntu SDK 已验证。
 
 2026-10-26：Qt 6.11.2 功能调整已在 Windows x64 / MSVC 19.44 完成增量构建与严格安装检查，新增 ICU 78.3#2，重建 12 个受影响的 Qt 及第三方包。ICU Release、Debug 各 519 条 C++ 编译命令均确认使用 C++20；完整 SDK 消费用例在两种配置下各 27 项通过。重新执行安装计划无需重建，269 个已安装包的许可材料已收集。本记录不包含 Ubuntu Qt 构建验证。
+
+2026-10-26：完整 Linux SDK 已在 WSL Ubuntu 26.04.1 x64 / GCC 16.2.0 完成源码构建和严格安装检查，主清单及传递依赖共 278 个 port 全部安装。Release、Debug 消费用例各 27 项通过，另在 WSLg 的 XCB 后端分别运行 Qt 消费程序通过。Assimp、VTK 使用已记录的 C++17 例外，Qt Base 使用 GNU C++20；其余实际记录到的 C++ 编译命令符合所选标准。标准检查共覆盖 78 个包、27,109 条命令。278 个包的许可材料已收集，`libuuid` 静态归档的 LGPL 组成及分发条件见 [许可说明](docs/licensing.md#linux-系统接口与构建工具)。报告位于 `BUILD_DIR/reports/`。
 
 产品交付按实际运行依赖保留所需 DLL/共享库、插件、脚本、资源和许可材料；SDK 中的开发工具不等于应用运行依赖。`licenses` 收集对应安装树的材料，具体分发条件统一见 [许可说明](docs/licensing.md)。

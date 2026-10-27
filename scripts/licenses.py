@@ -6,6 +6,36 @@ import re
 import shutil
 
 
+def system_port_notice(prefix: Path, name: str, rule: dict, provenance: dict):
+    """核对已审核的 Linux 空包，仅为 vcpkg 元数据/转接文件复用其 MIT 声明。"""
+    manifests = list((prefix.parent / "vcpkg/info").glob(f"{name}_*_{prefix.name}.list"))
+    if len(manifests) != 1:
+        raise RuntimeError(f"Cannot verify system port file list: {name}")
+    files = set()
+    for line in manifests[0].read_text(encoding="utf-8").splitlines():
+        if not line or line.endswith("/"):
+            continue
+        if not line.startswith(prefix.name + "/"):
+            raise RuntimeError(f"Unexpected system port file path: {name}: {line}")
+        files.add(line.removeprefix(prefix.name + "/"))
+    # SBOM 还记录暂存包的 BUILD_INFO/CONTROL；vcpkg 不将它们安装到 SDK。
+    staged_metadata = {"BUILD_INFO", "CONTROL"}
+    files.update(item["fileName"].removeprefix("./") for item in provenance.get("files", [])
+                 if item.get("SPDXID", "").startswith("SPDXRef-binary-file-")
+                 and item["fileName"].removeprefix("./") not in staged_metadata)
+    allowed = {f"share/{name}/vcpkg.spdx.json", f"share/{name}/vcpkg_abi_info.txt",
+               *rule.get("allowed_payload", [])}
+    unexpected = files - allowed
+    if unexpected:
+        raise RuntimeError(f"System port {name} contains unreviewed payload: {sorted(unexpected)}")
+    if any(not (prefix / file).is_file() or (prefix / file).is_symlink() for file in files):
+        raise RuntimeError(f"System port {name} has missing or linked payload files")
+    notice = prefix / "share/vcpkg-cmake/copyright"
+    if not notice.is_file():
+        raise RuntimeError(f"Missing vcpkg MIT notice for system port: {name}")
+    return notice, sorted(files)
+
+
 def collect(root: Path, prefix: Path, external: Path, destination: Path):
     status = prefix.parent / "vcpkg/status"
     journals = sorted(p for p in (prefix.parent / "vcpkg/updates").glob("*") if p.is_file() and p.name.isdigit())
@@ -38,13 +68,17 @@ def collect(root: Path, prefix: Path, external: Path, destination: Path):
         name = fields["Package"]
         share = prefix / "share" / name
         notice = share / "copyright"
+        system_payload = None
         if not notice.is_file():
             # 官方空总包可明确复用其依赖的许可原文，仍检查文件是否存在。
             notice_port = policy.get(name, {}).get("copyright_port", name)
             notice = prefix / "share" / notice_port / "copyright"
-        available_notice = notice if notice.is_file() else root / "licenses" / name / "copyright"
         sbom = share / "vcpkg.spdx.json"
         provenance = json.loads(sbom.read_text(encoding="utf-8")) if sbom.exists() else {}
+        system_rule = policy.get(name, {}).get("linux_system_port")
+        if not notice.is_file() and system_rule and prefix.name.split("-")[1:2] == ["linux"]:
+            notice, system_payload = system_port_notice(prefix, name, system_rule, provenance)
+        available_notice = notice if notice.is_file() else root / "licenses" / name / "copyright"
         packages = provenance.get("packages", [])
         recipe = next((p for p in packages if p.get("SPDXID") == "SPDXRef-port"), {})
         binaries = [f["fileName"].removeprefix("./") for f in provenance.get("files", [])
@@ -63,6 +97,9 @@ def collect(root: Path, prefix: Path, external: Path, destination: Path):
                  "artifacts": artifacts,
                  "sources": [p for p in packages if p.get("SPDXID", "").startswith("SPDXRef-resource-")],
                  "copyright": str(notice.relative_to(prefix)), "source_review": "required"}
+        if system_payload is not None:
+            entry["notice_scope"] = "vcpkg metadata/wrapper only; system implementation is not shipped by this port"
+            entry["verified_system_port_files"] = system_payload
         supplemental_index = root / "licenses" / name / "index.json"
         if supplemental_index.exists():
             expected = json.loads(supplemental_index.read_text(encoding="utf-8")).get("source_version")

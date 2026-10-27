@@ -28,8 +28,9 @@ BINARY_CACHE_DIR =
 TOOLCHAIN = gcc16
 CPP_STANDARD = cpp20
 # 仅为已确认不兼容的 port 回退，逗号分隔，例如 some-port=cpp17, another-port=cpp14。
-# Windows/Linux 分别设置；当前没有确认的例外，留空。
-CPP_STANDARD_OVERRIDES =
+# Assimp 6.0.5 的 IFC 比较运算符在 GCC 16 C++20 下也出现重载歧义；C++17 已通过 Debug/Release。
+# VTK 9.3 内置 DIY2 使用已移除的 allocator 成员；GCC 16 C++17 已通过 Debug/Release。
+CPP_STANDARD_OVERRIDES = assimp=cpp17, vtk=cpp17
 # 请填写 WSL 内的 Linux 版 vcpkg 工具仓库。
 VCPKG_ROOT = /home/zjgg/app/vcpkg
 GCC_EXE = /home/zjgg/app/gcc16.02/bin/gcc-16
@@ -38,7 +39,8 @@ CMAKE_EXE = /usr/bin/cmake
 CMAKE_GENERATOR = Ninja
 # 按需填写自建 GCC 的运行库搜索路径，多个目录用冒号分隔。
 LD_LIBRARY_PATH = /home/zjgg/app/gcc16.02/lib64:/home/zjgg/app/gcc16.02/lib
-JOBS = 12
+# 32 GiB WSL 下限制模板实例化峰值内存；按实际内存调整。
+JOBS = 4
 BUILD_DIR =
 OUTPUT_DIR =
 DOWNLOAD_DIR =

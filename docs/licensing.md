@@ -34,9 +34,17 @@ CPython 本体按 PSF/Python 历史许可及随包第三方条款分发，保留
 
 依据：[CPython 3.15.0 LICENSE](https://github.com/python/cpython/blob/v3.15.0/LICENSE)、[libffi 3.8.0 LICENSE](https://github.com/libffi/libffi/blob/v3.8.0/LICENSE)、[zlib 许可](https://www.zlib.net/zlib_license.html)、[OpenSSL 3.x 许可](https://openssl-library.org/source/license/)、[SQLite 官方说明](https://sqlite.org/copyright.html)、[zstd 1.5.7 LICENSE](https://github.com/facebook/zstd/blob/v1.5.7/LICENSE)、[XZ 5.8.4 组件划分](https://github.com/tukaani-project/xz/blob/v5.8.4/COPYING)、[Expat 2.9.0 COPYING](https://github.com/libexpat/libexpat/blob/R_2_9_0/expat/COPYING)。mpdecimal 与 bzip2 同时核对固定下载归档中的 LICENSE；升级或增加 features 后重新审核。
 
+## Linux 系统接口与构建工具
+
+Linux 的 `pthread`、`pthreads`、`dirent` 在当前固定配方下仅安装 vcpkg 元数据，不包含对应 Windows 实现的库或头文件。`libiconv` 使用系统 libc 的 iconv 接口，仅安装 vcpkg 的 CMake 转接文件；`opengl`、`egl` 也只提供使用说明或 CMake 转接文件。许可采集会同时核对包文件清单与 SBOM，仅在内容符合明确白名单时，为这些元数据/转接文件保留 vcpkg 的 MIT 声明；出现新库、头文件或其他未审核文件即报错。这不改变系统 libc、OpenGL/EGL 等实际实现的许可，产品若自行分发系统库，仍须核对它们的原始材料。
+
+Fontconfig 使用 GPL-3.0-or-later 的 `gperf` 作为构建生成器，实际安装为 `tools/gperf/gperf`，不作为业务程序的链接库或运行依赖。GNU 官方说明生成输出不会因为 gperf 本身而适用 GPL，输出仍须遵循输入内容的版权及许可；见 [gperf 输出版权说明](https://www.gnu.org/software/gperf/manual/html_node/Output-Copyright.html)。若分发该开发工具或包含它的 SDK，仍须履行工具及附带文档本身的许可与源码等义务。
+
+`libuuid` 1.0.3 的 port 元数据和根 COPYING 只提示 BSD，但实际参与编译的 `randutils.c` 标有未限定版本的 LGPL。按 [LGPL 2.1](https://www.gnu.org/licenses/old-licenses/lgpl-2.1.html) 第 13 节记录 2.1 路线；BSD 源文件声明、该 LGPL 声明和完整许可保存在 [补充材料](../licenses/libuuid/source.txt)。官方 port 安装静态归档，它不属于可仅按宽松许可直接静态链接到业务程序的白名单；直接静态使用时需要提供库的对应源码以及允许用户重新链接的应用目标文件等材料，见 [GNU 静态链接说明](https://www.gnu.org/licenses/gpl-faq.en.html#LGPLStaticVsDynamic)。当前 Fontconfig 2.17.1 配方仍声明此依赖，但生成的共享库中未发现 UUID 动态依赖或 UUID 符号，不能仅凭包依赖关系认定该归档已链接进应用。发布 SDK 或改变链接方式时须单独处理该归档的义务。
+
 ## Qt Base 功能调整的许可范围
 
-2026-10-26 按固定 baseline 的 Qt 6.11.2 配方核对新增功能，Windows Release、Debug 已完成构建、严格安装检查及消费验证。269 个实际安装包的许可与来源材料已收集到 `BUILD_DIR/reports/licenses/`；具体应用发布时仍须按实际部署文件核对依赖及许可范围。Ubuntu Qt 配置尚未构建验证。
+2026-10-26 按固定 baseline 的 Qt 6.11.2 配方核对新增功能，Windows、Ubuntu 的 Release、Debug 均已完成构建、严格安装检查及消费验证。Windows 的 269 个包、Ubuntu 的 278 个包已分别从实际安装树收集许可与来源材料，保存在各自的 `BUILD_DIR/reports/licenses/`；具体应用发布时仍须按实际部署文件核对依赖及许可范围。
 
 | 组件 | 采用的许可证与范围 |
 | --- | --- |

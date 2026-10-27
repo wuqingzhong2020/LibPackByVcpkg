@@ -2,7 +2,7 @@
 
 本仓库优先使用 vcpkg 官方配方。小范围的安装兼容处理放在 `scripts/port-fixes/`，不复制官方 port。`ports/` 只放确需自定义的部分，由根目录 `vcpkg-configuration.json` 注册为 overlay。
 
-以下以固定 baseline `a073c28e52d920cb2465a17512324b3b6684d03a` 为比较对象。目前有 13 个自定义 ports；`at-spi2-core`、`ompl`、`vtk`、`fmt`、`icu` 均使用官方 port。前三项的兼容处理仅在 Linux 加载，fmt 的选项处理用于两平台，ICU 的标准修正仅用于 Windows。
+以下以固定 baseline `a073c28e52d920cb2465a17512324b3b6684d03a` 为比较对象。目前有 13 个自定义 ports；`at-spi2-core`、`ompl`、`vtk`、`fmt`、`icu`、`octomap`、`qtbase` 均使用官方 port。`at-spi2-core`、`ompl`、`vtk`、`octomap`、`qtbase` 的兼容处理仅在 Linux 加载，fmt 的选项处理用于两平台，ICU 的标准修正仅用于 Windows。
 
 | Port | 版本 | 保留本地配方的主要原因 |
 | --- | --- | --- |
@@ -40,6 +40,24 @@
 
 实现：[fmt 选项脚本](../scripts/port-fixes/fmt.cmake)、[triplet 生成](../scripts/config.py)。
 
+## octomap（官方 port）
+
+**做了什么：** 保留官方 OctoMap 1.10.1 配方和 C++20。Linux 通过逐 port 配置加载 CMake 项目 hook，仅为 GNU C++ 添加 `-Wno-error=cpp`，保留预处理器警告及其余 `-Werror` 检查。两个脚本均计入 OctoMap 的 ABI，不改变公共 triplet，不复制配方或修改外部 vcpkg。
+
+**为什么：** 上游 `Pointcloud.cpp` 用 `<ciso646>` 检测标准库，GCC 16 会提示该头文件已在 C++20 中移除；上游固定启用的 `-Werror` 将此兼容性警告升级为错误。上游还会重设 Debug、Release 的 flags，因此在项目层添加这一选项，保留工具链的其他设置。Ubuntu 26.04.1 / GCC 16.2.0 已通过 C++20 的 Debug、Release 构建与严格安装检查，不加入标准回退清单。
+
+实现：[逐 port 选项](../scripts/port-fixes/octomap.cmake)、[CMake 项目 hook](../scripts/port-fixes/octomap-project.cmake)、[配置生成](../scripts/config.py)。
+
+## qtbase（官方 port）
+
+**做了什么：** 保留 Qt Base 6.11.2 官方配方，仅在 Linux/GNU 构建本 port 时，通过 CMake 项目 hook 为目标启用同级别的 GNU C++ 扩展模式。当前实际标准为 `gnu++20`，继续保留 C++20、int128 和所选 features。脚本通过既有逐 port 配置计入 Qt Base 的 ABI，不改变公共标准 hook 或 Windows 配置。
+
+**为什么：** Qt 的 `qtypes.h` 在 libstdc++ 严格标准模式下不启用 `QT_SUPPORTS_INT128`，而 `qtypes.cpp` 又要求支持 int128 的编译器必须启用它。同一份源文件、相同 include 和编译选项在 GCC 16.2.0 的严格 `c++20` 下失败，在 `gnu++20` 下通过。通用标准 hook 执行后，再仅为 Qt Base 设置 `CXX_EXTENSIONS=ON`，让最终标准选项使用 GNU 模式；不降级到 C++17，不全局启用 GNU 扩展。
+
+实现：[逐 port 选项](../scripts/port-fixes/qtbase.cmake)、[CMake 项目 hook](../scripts/port-fixes/qtbase-project.cmake)、[配置生成](../scripts/config.py)。
+
+Ubuntu 26.04.1 / GCC 16.2.0 的 Debug、Release 已通过完整构建与严格安装检查，并通过完整 SDK 消费用例及 WSLg XCB 后端的 Qt 消费程序。保留的 2,378 条 Qt Base C++ 编译命令最终标准均为 `gnu++20`。
+
 ## icu（官方 port）
 
 **做了什么：** 保留官方 ICU 78.3#2 配方。Windows 通过 `VCPKG_MAKE_OPTIONS` 覆盖 GNU Make 的 `COMPILE.cc`，保留原有 CRT、优化、调试和 include 选项，过滤旧的 C++ 标准参数后使用 INI 选择的标准。修正从已有的逐 port 标准文件加载，只计入 ICU 的 ABI；不修改公共 triplet 文本、上游源码或外部 vcpkg 配方。
@@ -47,6 +65,8 @@
 **为什么：** ICU 的 `mh-msys-msvc` 在 `CXXFLAGS` 末尾追加 `-std:c++17`，会覆盖项目先传入的 C++20。此修正用于落实首选标准，不属于因源码不兼容而回退 C++17；Linux 不应用这段 MSVC 专用处理。
 
 Windows/vc143 的 Release、Debug 已按 C++20 编译并通过 vcpkg 安装检查；两种配置各核对 519 条实际 C++ 编译命令，分别保留 `/MD`、`/MDd`。ICU 没有加入 C++17 回退清单。
+
+Linux/GCC 16.2.0 的两种配置也已通过完整构建与消费验证，保留的 1,038 条实际 C++ 编译命令均使用 `c++20`，无需加载 MSVC 专用修正。
 
 实现：[ICU 标准脚本](../scripts/port-fixes/icu-cxx-standard.cmake)、[逐 port 配置生成](../scripts/config.py)。
 
@@ -142,7 +162,7 @@ Windows/vc143 的 Release、Debug 已按 C++20 编译并通过 vcpkg 安装检�
 
 **做了什么：** 复制固定 baseline 的 Tcl 9.0.3 配方和原生补丁。新增的功能仅在 Unix 安装阶段：将 `tclConfig.sh` 保存为包含 `@TCL_PREFIX@`、`@TCL_SOURCE@` 占位符的模板，放到 `share/tcl`，供 Tk 使用。Windows 构建沿用原生实现。
 
-**为什么：** 原配方会清理这些带构建路径的配置脚本，而独立 Tk 构建又需要它们。模板可以在 Tk 自己的构建目录中填入当次路径，避免 Tk 读取 Tcl 的临时构建树；清理构建树或从二进制缓存恢复 Tcl 后仍有明确的配置输入。该 Linux 路径尚待实际构建验证。
+**为什么：** 原配方会清理这些带构建路径的配置脚本，而独立 Tk 构建又需要它们。模板可以在 Tk 自己的构建目录中填入当次路径，避免 Tk 读取 Tcl 的临时构建树；清理构建树或从二进制缓存恢复 Tcl 后仍有明确的配置输入。该路径已在 Ubuntu 26.04.1 / GCC 16.2.0 完成 Tcl、Tk 的 Debug、Release 构建与严格安装检查。
 
 实现：[配方](../ports/tcl/portfile.cmake)，重点看 Unix 分支的模板保存代码。
 
@@ -152,7 +172,11 @@ Windows/vc143 的 Release、Debug 已按 C++20 编译并通过 vcpkg 安装检�
 
 **为什么：** 当前需要独立 C/C++ Tk GUI 库，不能用 Python 的 tkinter feature 代替。Tk 依赖 Tcl 私有构建材料，但不应重新构建第二套 Tcl，或读取另一个 port 随时可能被清理的 buildtrees。归档中没有 Git 元数据，预写版本标识可以避免 NMake 失败或误读外层仓库。
 
-实现：[配方](../ports/tk/portfile.cmake)、[导出配置](../ports/tk/TkConfig.cmake)。
+Linux 额外修正两处实际构建问题：GCC 16 默认采用 C23，`strchr` 保留参数的 const 属性，字体回退代码改为通过指向可写字体名缓冲区的局部 `char*` 截断字符串，再交给只读指针使用；`vcpkg_make` 已将 `wish9.0` 安装到 `tools/tk/bin` 和 `tools/tk/debug/bin`，不再从不存在的顶层 `bin` 重复搬运工具。两种配置的编译与严格安装检查均已通过。
+
+独立 Tcl/Tk 消费用例已在 WSLg 上通过 Release、Debug 运行验证，包括初始化、创建控件、处理事件和运行库路径检查。
+
+实现：[配方](../ports/tk/portfile.cmake)、[Unix 字体指针补丁](../ports/tk/unix-font-const.patch)、[导出配置](../ports/tk/TkConfig.cmake)。
 
 ## cgal
 

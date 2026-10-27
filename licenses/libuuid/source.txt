@@ -1,0 +1,9 @@
+Source: https://sourceforge.net/projects/libuuid/files/libuuid-1.0.3.tar.gz/download
+Archive SHA512: 77488caccc66503f6f2ded7bdfc4d3bc2c20b24a8dc95b2051633c695e99ec27876ffbafe38269b939826e1fdb06eea328f07b796c9e0aaca12331a787175507
+source-notices.txt preserves the license-bearing comments of the selected library C sources and headers.
+The official port applies fix-usleep-with-nanosleep.patch and uses a static library.
+The installed COPYING only refers to BSD-3 terms and omits the LGPL notice in randutils.c.
+The upstream LGPL notice has no version; this SDK records the LGPL-2.1 route and preserves the full license.
+LGPL-2.1.txt source: https://www.gnu.org/licenses/old-licenses/lgpl-2.1.txt
+LGPL-2.1.txt SHA256: 20e50fe7aae3e56378ebf0417d9de904f55a0e61e4df315333e632a4d3555d95
+This is not an unconditional approval for application static linkage: preserve corresponding source and relinking rights.

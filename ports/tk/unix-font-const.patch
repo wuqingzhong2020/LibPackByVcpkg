@@ -1,0 +1,15 @@
+diff --git a/unix/tkUnixFont.c b/unix/tkUnixFont.c
+--- a/unix/tkUnixFont.c
++++ b/unix/tkUnixFont.c
+@@ -1934,8 +1934,9 @@ FindSubFontForChar(
+ 
+     nameList = ListFonts(fontPtr->display, "*", &numNames);
+     for (i = 0; i < numNames; i++) {
+-	fallback = strchr(nameList[i] + 1, '-') + 1;
+-	strchr(fallback, '-')[0] = '\0';
++	char *mutableFallback = strchr(nameList[i] + 1, '-') + 1;
++	strchr(mutableFallback, '-')[0] = '\0';
++	fallback = mutableFallback;
+ 	if (SeenName(fallback, &ds) == 0) {
+ 	    subFontPtr = CanUseFallback(fontPtr, fallback, ch,
+ 		    fixSubFontPtrPtr);

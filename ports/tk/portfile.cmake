@@ -2,7 +2,8 @@ vcpkg_check_linkage(ONLY_DYNAMIC_LIBRARY)
 vcpkg_from_github(OUT_SOURCE_PATH SOURCE_PATH
     REPO tcltk/tk
     REF 72e252081cb8d1633757b62d7bdbc3d9aa39578e
-    SHA512 fadfcb157e5c0756b6c8d870ad914c622537810379b0d26198bd63a129a5e48efc78252acabbbee3c4cc3d2395f88167a3c416500a4c168966985ea484ff3fd1)
+    SHA512 fadfcb157e5c0756b6c8d870ad914c622537810379b0d26198bd63a129a5e48efc78252acabbbee3c4cc3d2395f88167a3c416500a4c168966985ea484ff3fd1
+    PATCHES unix-font-const.patch)
 # The archive has no Git metadata. Otherwise upstream tries `git rev-parse`
 # during NMake and can fail or accidentally identify the enclosing repository.
 file(WRITE "${SOURCE_PATH}/manifest.uuid" "git-72e252081cb8d1633757b62d7bdbc3d9aa39578e\n")
@@ -48,7 +49,7 @@ else()
         OPTIONS_DEBUG "--with-tcl=${CURRENT_BUILDTREES_DIR}/tcl-debug")
     vcpkg_make_install()
     vcpkg_fixup_pkgconfig()
-    vcpkg_copy_tools(TOOL_NAMES wish9.0 AUTO_CLEAN)
+    # vcpkg_make already installs wish9.0 into tools/tk/bin.
 endif()
 vcpkg_copy_pdbs()
 file(REMOVE_RECURSE "${CURRENT_PACKAGES_DIR}/debug/include" "${CURRENT_PACKAGES_DIR}/debug/share" "${CURRENT_PACKAGES_DIR}/share/man")

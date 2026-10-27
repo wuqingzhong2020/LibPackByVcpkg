@@ -1,0 +1,22 @@
+{
+  "source_version": "1.0.3",
+  "provenance": "source.txt",
+  "source_files": [
+    "libuuid-1.0.3/all-io.h",
+    "libuuid-1.0.3/clear.c",
+    "libuuid-1.0.3/compare.c",
+    "libuuid-1.0.3/copy.c",
+    "libuuid-1.0.3/gen_uuid.c",
+    "libuuid-1.0.3/isnull.c",
+    "libuuid-1.0.3/pack.c",
+    "libuuid-1.0.3/parse.c",
+    "libuuid-1.0.3/randutils.c",
+    "libuuid-1.0.3/unpack.c",
+    "libuuid-1.0.3/unparse.c",
+    "libuuid-1.0.3/uuid.h",
+    "libuuid-1.0.3/uuidP.h",
+    "libuuid-1.0.3/uuid_time.c",
+    "libuuid-1.0.3/uuidd.h"
+  ],
+  "reviewed_source_license": "BSD-3-Clause AND LGPL (upstream randutils.c does not specify a version; LGPL-2.1 selected)"
+}

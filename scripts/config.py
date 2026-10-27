@@ -147,10 +147,12 @@ def write_triplet(config: BuildConfig) -> Path:
     # 每个例外单独计入对应 port 的 ABI，调整一个库不再改变整份 triplet。
     standards = folder / "cxx-standards"
     standards.mkdir(exist_ok=True)
-    # 非 CMake port 的标准修正也经已有的逐 port 文件加载，避免改动公共 triplet
-    # 导致整个 SDK 的 ABI 变化。ICU 的 MSVC Makefile 会追加固定 C++17。
+    # 编译兼容修正经已有的逐 port 文件加载，避免改动公共 triplet
+    # 导致整个 SDK 的 ABI 变化；脚本只计入对应 port 的构建标识。
     standard_fixes = ({"icu": Path(__file__).resolve().parent / "port-fixes/icu-cxx-standard.cmake"}
-                      if config.system == "Windows" else {})
+                      if config.system == "Windows" else {
+                          "octomap": Path(__file__).resolve().parent / "port-fixes/octomap.cmake",
+                          "qtbase": Path(__file__).resolve().parent / "port-fixes/qtbase.cmake"})
     configured_ports = config.cpp_standard_overrides.keys() | standard_fixes.keys()
     for path in standards.glob("*.cmake"):
         if path.stem not in configured_ports:
