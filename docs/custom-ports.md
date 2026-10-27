@@ -18,7 +18,7 @@
 | [scintilla](#scintilla) | 5.6.7 | 将原 Win32 构建改为两平台共用的 Qt6 控件构建 |
 | [lexilla](#lexilla) | 5.4.6 | 提供跨平台 CMake 包及 Scintillua 需要的支持层 |
 | [tcl](#tcl) | 9.0.3 | 为 Linux 上独立构建 Tk 保留配置模板 |
-| [python3](#python3) | 3.15.0 | 使用上游原生构建系统，提供自由线程共享 SDK |
+| [python3](#python3) | 3.15.2 | 使用上游原生构建系统，提供自由线程共享 SDK |
 
 每个目录的 `vcpkg.json` 声明版本、依赖和 features；`portfile.cmake` 固定源码、校验值和构建选项；补丁或额外 CMake 文件记录实际差异。具体代码以这些文件为准。
 
@@ -188,7 +188,7 @@ Linux 额外修正两处实际构建问题：GCC 16 默认采用 C23，`strchr` 
 
 ## python3
 
-**做了什么：** 固定上游 `v3.15.0` 及源码校验值。Windows 直接调用 PCbuild/MSBuild，Linux 调用 configure/make；构建 x64、无 GIL 的 Release/Debug 共享库，关闭 JIT、tail-call、pip 和测试模块。保留正常标准库以及 ctypes、decimal、SSL/hashlib、SQLite、zlib、bz2、lzma、zstd、XML 模块。libffi、mpdecimal、zlib、OpenSSL、SQLite3、zstd、bzip2、liblzma、Expat 均由 vcpkg 公共 ports 提供，使用对应 Release/Debug 动态库。保留 CPython 配套的内置 mimalloc 与 HACL。
+**做了什么：** 固定上游 `v3.15.2` 及源码校验值。Windows 直接调用 PCbuild/MSBuild，Linux 调用 configure/make；构建 x64、无 GIL 的 Release/Debug 共享库，关闭 JIT、tail-call、pip 和测试模块。保留正常标准库以及 ctypes、decimal、SSL/hashlib、SQLite、zlib、bz2、lzma、zstd、XML 模块。libffi、mpdecimal、zlib、OpenSSL、SQLite3、zstd、bzip2、liblzma、Expat 均由 vcpkg 公共 ports 提供，使用对应 Release/Debug 动态库。保留 CPython 配套的内置 mimalloc 与 HACL。
 
 **为什么：** 需要 CPython 3.15 自由线程接口，同时复用 SDK 已有的公共 C 库。Windows 设置 `KillPython=false`，跳过 PCbuild 的进程清理任务；补丁让扩展链接 vcpkg 导入库，不构建内置 Expat 或下载 CPython externals。Linux 显式传入库路径并限定 pkg-config 到当前配置的 SDK 目录，使用 `--with-system-expat`。安装时处理 DLL 依赖、相对 RUNPATH 与 sysconfig，使解释器和 SDK 可以整体搬迁。
 
@@ -198,11 +198,15 @@ Linux 的 sysconfig 分别计算当前配置前缀和 SDK 公共前缀，移除�
 
 完整清单与单库清单都由本地配方控制版本，不能用 registry override 替代 overlay 的版本声明。
 
+3.15.2 继续使用 `3.15t` 自由线程 ABI 和原有安装路径。Windows 的公共依赖补丁适配新增的 Expat `xcs.c/xcs.h` 工程项，仍链接公共 Expat 2.9.0；Ubuntu 26.04 沿用 `--with-system-expat`，不构建内置 Expat。两平台的构建与暂存目录包含完整版本号，避免升级时复用旧版本对象文件。源码与补丁检查不能替代两平台实际编译及消费验证。
+
+2026-10-27：Windows x64 / MSVC 19.44 的 3.15.2 Release、Debug 已通过源码构建、严格安装检查、独立解释器及 C++ 嵌入用例；九个公共 C 库的实际加载路径、Expat 上下文与位置接口、自由线程扩展及 Tk/Readline 禁用状态均通过检查。完整 SDK 两种配置各 27 项消费测试通过。pip 配置保持原样；本轮未构建 Ubuntu，也未重做 SDK 搬迁验证。
+
 port 沿用官方名称 `python3`，因此官方 pybind11 等库对 `python3` 的依赖也会解析到本地 overlay。消费工程通过 `CPython::Python` 明确选择共享库和自由线程 ABI，pybind11 只提供头文件，不另找系统 Python；单库清单 `vcpkg2.json` 不包含 pybind11。
 
 安装后通过 `find_package(cpython CONFIG REQUIRED)` 和 `CPython::Python` 使用共享库，target 提供自由线程宏和 Debug 宏。Windows 解释器位于 `tools/python3/python.exe`、`tools/python3/debug/python_d.exe`；Linux 对应 `tools/python3/python3.15t`、`tools/python3/debug/python3.15td`。嵌入式宿主应使用 PyConfig 指向对应解释器的标准库目录。
 
-实现：[入口](../ports/python3/portfile.cmake)、[Windows](../ports/python3/windows.cmake)、[Linux](../ports/python3/linux.cmake)、[原有依赖补丁](../ports/python3/external-libraries.patch)、[公共依赖补丁](../ports/python3/public-libraries.patch)。
+实现：[入口](../ports/python3/portfile.cmake)、[Windows](../ports/python3/windows.cmake)、[Linux](../ports/python3/linux.cmake)、[统一公共依赖补丁](../ports/python3/public-libraries.patch)。
 
 ## 维护这些 ports 时看什么
 

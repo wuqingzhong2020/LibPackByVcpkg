@@ -18,7 +18,7 @@ from compression import zstd
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import closing
 
-assert sys.version_info[:3] == (3, 15, 0), sys.version
+assert sys.version_info[:3] == (3, 15, 2), sys.version
 assert hasattr(sys, "gettotalrefcount") == (os.environ["SDK_EXPECTED_CONFIG"] == "Debug")
 assert sysconfig.get_config_var("Py_GIL_DISABLED") == 1
 assert not sys._is_gil_enabled()
@@ -49,7 +49,16 @@ with closing(sqlite3.connect(":memory:")) as db:
 
 parsed = []
 parser = pyexpat.ParserCreate()
-parser.StartElementHandler = lambda name, attrs: parsed.append(name)
+
+def start_element(name, attrs):
+    parsed.append(name)
+    # CPython 3.15.2 uses Expat 2.9's 64-bit context and position APIs.
+    assert parser.GetInputContext().startswith(b"<" + name.encode())
+    assert parser.CurrentByteIndex == (0 if name == "sdk" else 5)
+    assert parser.CurrentLineNumber == 1
+    assert parser.CurrentColumnNumber == parser.CurrentByteIndex
+
+parser.StartElementHandler = start_element
 parser.Parse(b"<sdk><python/></sdk>", True)
 assert parsed == ["sdk", "python"]
 assert ET.fromstring("<sdk><python>42</python></sdk>").findtext("python") == "42"

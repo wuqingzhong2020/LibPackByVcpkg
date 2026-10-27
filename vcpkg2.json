@@ -1,11 +1,11 @@
 {
   "name": "python3-only",
   "version-string": "0.1.0",
-  "description": "CPython 3.15.0 free-threaded shared SDK and its required dependencies",
+  "description": "CPython 3.15.2 free-threaded shared SDK and its required dependencies",
   "dependencies": [
     {
       "name": "python3",
-      "$comment": "3.15.0; the local overlay controls this version"
+      "$comment": "3.15.2; the local overlay controls this version"
     }
   ],
   "overrides": [

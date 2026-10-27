@@ -1,5 +1,5 @@
 {
-  "python3": {"selection": "CPython 3.15.0 PSF/Python notices; retain local change summary, mimalloc MIT, HACL MIT and KaRaMeL Apache-2.0/MIT notices; no Tcl/Tk or GNU Readline"},
+  "python3": {"selection": "CPython 3.15.2 PSF/Python notices; retain local change summary, mimalloc MIT, HACL MIT and KaRaMeL Apache-2.0/MIT notices; no Tcl/Tk or GNU Readline"},
   "libffi": {"selection": "MIT; retain copyright and permission notice"},
   "mpdecimal": {"selection": "BSD-2-Clause; retain binary redistribution notices"},
   "zlib": {"selection": "Zlib; preserve origin and mark source modifications"},

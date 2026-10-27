@@ -8,8 +8,8 @@ vcpkg_from_github(
     OUT_SOURCE_PATH SOURCE_PATH
     REPO python/cpython
     REF "v${VERSION}"
-    SHA512 27fbe02a1742c0e329350167d744d612c2f8d140ed73247c24599e02dc3f2dd5f213ff5ee9e3d0a60ed8e84f06c4a4f30fb31a4ea4e570b61a03f355dfb34b74
-    PATCHES external-libraries.patch public-libraries.patch
+    SHA512 c57f79ec1f620790216d72b3aff74b299fe107939b5e1846687a1fc91dea373a90da17968b770a99f3a37f0d5e0da754af2f95690c0af409892ec0f73eb29282
+    PATCHES public-libraries.patch
 )
 vcpkg_find_acquire_program(PYTHON3)
 unset(ENV{PYTHONHOME})

@@ -16,6 +16,8 @@
 
 2026-10-26 核对 CPython 3.15.0 配方、固定版本源码许可及安装树 `share/<port>/copyright`。下列运行库在履行表中条款后均允许商用闭源分发，无需公开独立业务代码；本次没有需要因许可证而移除的公共依赖。
 
+2026-10-27 升级至 3.15.2 时复核源码：Python LICENSE、保留的 HACL/KaRaMeL 声明及 Expat COPYING 未变；`Doc/license.rst` 仅更新 mimalloc 版权年份，其新增源码和头文件仍声明 MIT。九个公共依赖与禁用模块不变，沿用下列许可选择。本轮尚未编译，3.15.2 安装树的许可收集须在后续构建完成后执行。
+
 | 运行库 / 版本 | 采用的许可证 | 分发要求或范围 |
 | --- | --- | --- |
 | libffi 3.8.0 | MIT | 保留版权和许可原文 |
@@ -32,7 +34,7 @@ CPython 本体按 PSF/Python 历史许可及随包第三方条款分发，保留
 
 当前 CPython 禁用 Tcl/Tk 与 GNU Readline。Tcl/Tk 未启用是本项目的范围选择；GNU Readline 无可用的宽松许可分支，故不引入。liblzma 源码归档中的构建脚本或 XZ 辅助工具许可不代表 liblzma 运行库本身的许可；本次只选库，运行用例还会检查实际加载路径。zstd 许可文件保留 GPL 原文不改变本项目已明确选择 BSD 分支的事实。
 
-依据：[CPython 3.15.0 LICENSE](https://github.com/python/cpython/blob/v3.15.0/LICENSE)、[libffi 3.8.0 LICENSE](https://github.com/libffi/libffi/blob/v3.8.0/LICENSE)、[zlib 许可](https://www.zlib.net/zlib_license.html)、[OpenSSL 3.x 许可](https://openssl-library.org/source/license/)、[SQLite 官方说明](https://sqlite.org/copyright.html)、[zstd 1.5.7 LICENSE](https://github.com/facebook/zstd/blob/v1.5.7/LICENSE)、[XZ 5.8.4 组件划分](https://github.com/tukaani-project/xz/blob/v5.8.4/COPYING)、[Expat 2.9.0 COPYING](https://github.com/libexpat/libexpat/blob/R_2_9_0/expat/COPYING)。mpdecimal 与 bzip2 同时核对固定下载归档中的 LICENSE；升级或增加 features 后重新审核。
+依据：[CPython 3.15.2 LICENSE](https://github.com/python/cpython/blob/v3.15.2/LICENSE)、[libffi 3.8.0 LICENSE](https://github.com/libffi/libffi/blob/v3.8.0/LICENSE)、[zlib 许可](https://www.zlib.net/zlib_license.html)、[OpenSSL 3.x 许可](https://openssl-library.org/source/license/)、[SQLite 官方说明](https://sqlite.org/copyright.html)、[zstd 1.5.7 LICENSE](https://github.com/facebook/zstd/blob/v1.5.7/LICENSE)、[XZ 5.8.4 组件划分](https://github.com/tukaani-project/xz/blob/v5.8.4/COPYING)、[Expat 2.9.0 COPYING](https://github.com/libexpat/libexpat/blob/R_2_9_0/expat/COPYING)。mpdecimal 与 bzip2 同时核对固定下载归档中的 LICENSE；升级或增加 features 后重新审核。
 
 ## Linux 系统接口与构建工具
 

@@ -4,7 +4,7 @@ int main(int argc, char** argv) {
     pybind11::globals()["sdk_expected_debug"] = bool(SDK_PYTHON_DEBUG);
     pybind11::exec(R"(
 import sys, sysconfig, ctypes, decimal, zlib, hashlib
-assert sys.version_info[:3] == (3, 15, 0), sys.version
+assert sys.version_info[:3] == (3, 15, 2), sys.version
 assert hasattr(sys, 'gettotalrefcount') == sdk_expected_debug, 'Python Debug/Release runtime mismatch'
 assert sysconfig.get_config_var('Py_GIL_DISABLED') == 1
 assert not sys._is_gil_enabled()

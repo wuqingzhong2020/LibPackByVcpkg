@@ -74,7 +74,7 @@
     "pybind11",
     {
       "name": "python3",
-      "$comment": "本地 overlay：3.15.0；自由线程共享 SDK"
+      "$comment": "本地 overlay：3.15.2；自由线程共享 SDK"
     },
     "qhull",
     "qt-advanced-docking-system",

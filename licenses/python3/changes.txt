@@ -1,4 +1,4 @@
-Local CPython 3.15.0 SDK changes
+Local CPython 3.15.2 SDK changes
 
 Build native x64 free-threaded shared libraries in Release and Debug configurations.
 Use the upstream PCbuild/configure build systems with JIT and tail-call interpreter disabled.
@@ -8,4 +8,7 @@ Do not build Tcl/Tk, GNU Readline, pip or CPython test modules.
 Linux also disables curses, dbm/gdbm and the system UUID backend.
 Arrange the SDK layout, dependent DLLs, relative library search paths and sysconfig
 metadata for relocation. Export a CPython::Python CMake target for consumers.
-The repository ports/python3 directory contains the exact patches and build recipes.
+Keep build and staging directories separate for each CPython version.
+The repository ports/python3/public-libraries.patch contains the dependency changes,
+including removal of the bundled Expat xcs sources from the Windows projects.
+The ports/python3 directory contains the build recipes.

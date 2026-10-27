@@ -223,7 +223,7 @@ python build.py plan --manifest vcpkg2.json
 python build.py build --manifest vcpkg2.json --from-source
 ```
 
-该清单用于单独构建和验证自定义 `python3` 3.15.0 自由线程共享库及九个必要公共 C 库；模块范围见 [CPython 配方说明](docs/custom-ports.md#python3)。完整 SDK 使用主清单 `vcpkg.json`，单独验证 CPython 时可选择这份精简清单。
+该清单用于单独构建和验证自定义 `python3` 3.15.2 自由线程共享库及九个必要公共 C 库；模块范围见 [CPython 配方说明](docs/custom-ports.md#python3)。完整 SDK 使用主清单 `vcpkg.json`，单独验证 CPython 时可选择这份精简清单。
 
 可以复制清单为 `vcpkg.my-sdk.json` 等文件，分别修改 `dependencies`、`features`、`default-features` 和 `overrides`，再通过 `--manifest` 选择。文件须位于仓库内，参数中的相对路径以仓库根目录为基准；各清单共用根目录 `vcpkg-configuration.json` 的 baseline 与本仓库 overlay ports。
 
@@ -360,7 +360,7 @@ target_link_libraries(app PRIVATE TBB::tbb Eigen3::Eigen)
 python build.py verify --installed-root D:/sdk/robot-cam-installed --config both
 ```
 
-完整清单 `vcpkg.json` 和单库清单 `vcpkg2.json` 均直接选择自定义 `python3` 3.15.0 自由线程 SDK；其版本由本地 port 控制。模块范围与 ABI 见 [ports 说明](docs/custom-ports.md#python3)，产品分发条件见 [许可说明](docs/licensing.md)。
+完整清单 `vcpkg.json` 和单库清单 `vcpkg2.json` 均直接选择自定义 `python3` 3.15.2 自由线程 SDK；其版本由本地 port 控制。模块范围与 ABI 见 [ports 说明](docs/custom-ports.md#python3)，产品分发条件见 [许可说明](docs/licensing.md)。
 
 CPython 复用 vcpkg 的九个公共动态库：libffi、mpdecimal、zlib、OpenSSL、SQLite3、zstd、bzip2、liblzma、Expat。保留上游配套的 mimalloc 和 HACL；当前不引入 Tcl/Tk、GNU Readline，禁用 `_tkinter` 与 `readline`。SDK 主清单中的独立 Tcl/Tk 包不因此成为 CPython 的依赖。
 
@@ -371,6 +371,8 @@ CPython 复用 vcpkg 的九个公共动态库：libffi、mpdecimal、zlib、Open
 完整 SDK 以主清单构建、严格安装检查及现有 Release/Debug 消费验证为准，覆盖代表性的几何、点云、Qt、Python 嵌入与扩展、URDF 建模、编辑器等接口。检查实际链接与运行资源，不能仅凭安装目录存在或 ABI hash 判定通过。
 
 先验证 Windows，再用同一份清单在 Ubuntu 原生构建和运行；一端成功不能代表另一端成功。搬迁后的 SDK 另用 `verify --installed-root` 验证。中文与空格路径、无显示环境和具体业务用例也按实际覆盖范围判断，不由基础消费测试推断全部兼容。
+
+2026-10-27：CPython 3.15.2 已在 Windows x64 / MSVC 19.44 完成 Release、Debug 源码构建、严格安装检查及独立消费验证；两种配置各通过解释器和 C++ 嵌入两项用例，确认九个公共 C 库的加载来源、Expat 2.9.0 上下文与位置接口、扩展加载后的无 GIL 状态及 Tk/Readline 禁用状态。Boost.Python、boost-parameter-python、Boost 汇总包、pybind11 和安装计划中的独立 Tk 包已同步重建；完整 SDK 消费用例两种配置各 27 项通过，包括 pybind11 嵌入与扩展加载。安装后的两种解释器均通过上游 UCRT 检查，重新查看安装计划无需重建，269 个已安装包的许可材料已收集。pip 配置未调整；本轮未构建 Ubuntu，也未重做搬迁验证，Ubuntu 26.04 的 3.15.2 仍仅完成源码与静态检查。独立验证报告为 `BUILD_DIR/reports/verify-python3.json`，完整 SDK 报告为 `BUILD_DIR/reports/verify-full.json`。
 
 2026-10-26：CPython 3.15.0#1 已在 Windows x64 / MSVC 19.44 和 WSL Ubuntu 26.04.1 / GCC 16.2.0 上通过 Release、Debug 源码构建、严格安装检查及独立消费用例。每种配置均通过解释器与 C++ 嵌入测试，确认九个公共库的实际加载来源、自由线程扩展及 Tk/Readline 禁用状态；两平台搬迁到含中文和空格的目录后，也均通过 Release、Debug 消费用例。Ubuntu 安装范围为 CPython、九个 C 库及四个构建辅助包，共 14 包；本记录不代表完整 Ubuntu SDK 已验证。
 
